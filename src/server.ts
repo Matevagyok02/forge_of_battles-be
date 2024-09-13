@@ -7,16 +7,15 @@ import mongoose from "mongoose";
 // Create an Express application
 const app = express();
 
-// Set the port number for the server
-const port = 3000;
-
 app.use(cors({
    origin: [
        'http://localhost:5173',
-       'https://forge-of-battles-fe.onrender.com/'
+       'https://forge-of-battles-fe.onrender.com'
    ],
    methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
+
+const port = 3000;
 
 app.get('/:id', async (req, res) => {
     try {
