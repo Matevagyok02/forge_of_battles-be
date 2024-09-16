@@ -4,12 +4,12 @@ import Card from "./models/Card"
 import "./database";
 import mongoose from "mongoose";
 
-// Create an Express application
 const app = express();
 
 app.use(cors({
    origin: [
        'http://localhost:5173',
+       'https://localhost:5173',
        'https://forge-of-battles-fe.onrender.com'
    ],
    methods: ['GET', 'POST', 'PUT', 'DELETE'],
