@@ -1,5 +1,5 @@
 let mongoose = require('mongoose');
-const uri = "mongodb+srv://fobAdmin:lzHdWT2ORKAYZLp0@forgeofbattles.xkdcf.mongodb.net/forge_of_battles?retryWrites=true&w=majority&appName=ForgeOfBattles";
+const uri = process.env.FOB_DB_URI;
 
 class Database {
     constructor() {
