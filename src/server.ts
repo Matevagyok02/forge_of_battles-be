@@ -2,10 +2,9 @@ import express from "express";
 import http from "http";
 import cors from "cors";
 import WebSocket from "ws";
-//import "./database";
+import "./database";
 import Card from "./models/Card";
 import mongoose from "mongoose";
-import fs from "fs";
 
 const app = express();
 const server = http.createServer(app);
@@ -59,31 +58,23 @@ app.get('/test', async (req, res) => {
     return res.send({message: 'it works!'});
 })
 
-// app.get('/:id', async (req, res) => {
-//     try {
-//         // Get the 'id' parameter from the URL
-//         const cardId = req.params.id;
-//
-//         if (!mongoose.Types.ObjectId.isValid(cardId)) {
-//             return res.status(400).send({ message: 'Invalid card ID format' });
-//         }
-//
-//         const card = await Card.findById(new mongoose.Types.ObjectId(cardId));
-//
-//         if (!card) {
-//             // If no card is found, send a 404 response
-//             return res.status(404).send({message: 'Card not found'});
-//         }
-//         // Send the card data as a response
-//         res.json(card);
-//     } catch (err) {
-//         console.error('Error fetching card:', err);
-//         // Send a 500 response if an error occurs
-//         res.status(500).send({message: 'Server error'});
-//     }
-// });
+app.get('/:id', async (req, res) => {
+    try {
+        const cardId = req.params.id;
 
-// Start the server and listen on the specified port
+        if (!mongoose.Types.ObjectId.isValid(cardId)) {
+            return res.status(400).send({ message: 'Invalid card ID format' });
+        }
+        const card = await Card.findById(new mongoose.Types.ObjectId(cardId));
+        if (!card) {
+            return res.status(404).send({message: 'Card not found'});
+        }
+        res.json(card);
+    } catch (err) {
+        console.error('Error fetching card:', err);
+        res.status(500).send({message: 'Server error'});
+    }
+});
 
 server.listen(port, () => {
     console.log(`The WebSocket server is LIVE`);
