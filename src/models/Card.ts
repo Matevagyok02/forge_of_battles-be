@@ -1,13 +1,35 @@
-import mongoose from 'mongoose';
+import {PassiveAbility, ActionAbility} from "./Abilities";
+import {getModelForClass, prop} from "@typegoose/typegoose";
 
-const cardSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    attack: { type: Number, required: true },
-    defense: { type: Number, required: true },
-    description: { type: String, required: false }
-});
+export class Card {
 
-// Create a Mongoose model for the 'Card' collection
-const Card = mongoose.model('cards', cardSchema);
+    @prop({required: true})
+    public readonly id!: string;
 
-export default Card;
+    @prop({required: true})
+    public readonly name!: string;
+
+    @prop()
+    public readonly deck!: string;
+
+    @prop()
+    public readonly attack!: number;
+
+    @prop()
+    public readonly defence!: number;
+
+    @prop()
+    public readonly cost!: number;
+
+    @prop()
+    public readonly passive!: PassiveAbility;
+
+    @prop()
+    public readonly action!: ActionAbility;
+
+}
+
+export const CardModel = getModelForClass(
+    Card,
+    {schemaOptions: {collection: 'cards'}}
+);

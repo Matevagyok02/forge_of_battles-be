@@ -10,10 +10,10 @@ class Database {
         mongoose
             .connect(uri)
             .then(() => {
-                console.log('Database connection successful');
+                console.log('Successfully connected to the database!');
             })
             .catch(() => {
-                console.error('Database connection error');
+                console.error('Error while connecting to database...');
             });
     }
 }
