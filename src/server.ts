@@ -3,9 +3,10 @@ import http from "http";
 import cors from "cors";
 import WebSocket from "ws";
 import "./database";
-import Card from "./models/Card";
-import mongoose from "mongoose";
+import router from "./routes";
+import {auth} from "express-oauth2-jwt-bearer";
 
+const authConfig = require("../auth.config.json");
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -20,10 +21,21 @@ app.use(cors({
    methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 
+app.use(express.json());
+app.use('/', router);
+
 const port = 3000;
 
-const connectedClients: Set<WebSocket> = new Set();
+const jwtCheck = auth(authConfig);
 
+// enforce on all endpoints
+app.use(jwtCheck);
+
+app.get('/authorized', function (req, res) {
+    res.send('Secured Resource');
+});
+
+const connectedClients: Set<WebSocket> = new Set();
 wss.on('connection', (ws: WebSocket) => {
     console.log('A new client connected.');
     connectedClients.add(ws);
@@ -58,24 +70,6 @@ app.get('/test', async (req, res) => {
     return res.send({message: 'it works!'});
 })
 
-app.get('/:id', async (req, res) => {
-    try {
-        const cardId = req.params.id;
-
-        if (!mongoose.Types.ObjectId.isValid(cardId)) {
-            return res.status(400).send({ message: 'Invalid card ID format' });
-        }
-        const card = await Card.findById(new mongoose.Types.ObjectId(cardId));
-        if (!card) {
-            return res.status(404).send({message: 'Card not found'});
-        }
-        res.json(card);
-    } catch (err) {
-        console.error('Error fetching card:', err);
-        res.status(500).send({message: 'Server error'});
-    }
-});
-
 server.listen(port, () => {
-    console.log(`The WebSocket server is LIVE`);
+    console.log(`The server is LIVE`);
 })

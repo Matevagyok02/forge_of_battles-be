@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node dist/server.js",
+    "dev": "tsc && node dist/server.js",
     "build": "tsc",
     "test": "echo No tests specified && exit 1"
   },
@@ -19,9 +20,14 @@
     "typescript": "^5.6.2"
   },
   "dependencies": {
+    "@typegoose/typegoose": "^12.7.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
-    "mongoose": "^8.6.2",
+    "express-jwt": "^8.4.1",
+    "express-oauth2-jwt-bearer": "^1.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
+    "mongoose": "^8.6.3",
     "ws": "^8.18.0"
   }
 }
