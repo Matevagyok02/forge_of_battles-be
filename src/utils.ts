@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import {Response, Request} from "express";
 
 const CHAR_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
@@ -28,4 +29,15 @@ const shuffleArray = <T>(array: T[]): T[] => {
         [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
+}
+
+//handle error + respond
+export const handleServerError = (error: any, res: Response) => {
+    console.error(error);
+    res.status(500).json({ message: error});
+}
+
+//parse user id from request
+export const getUserId = (req: Request): string | undefined => {
+    return req.auth?.payload.sub;
 }

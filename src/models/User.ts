@@ -1,111 +1,116 @@
 import {getModelForClass, prop} from "@typegoose/typegoose";
-import {strict} from "assert";
-
-enum ReqState {
-    PENDING = "PENDING",
-    ACCEPTED = "ACCEPTED",
-    DECLINED = "DECLINED"
-}
-
-class Friend {
-
-    @prop()
-    public readonly username!: string;
-
-    @prop()
-    public readonly status!: string;
-
-
-    constructor(username: string, status: string) {
-        this.username = username;
-        this.status = status;
-    }
-}
 
 class FriendRequest {
 
     @prop()
-    public readonly fromUsername!: string;
+    public fromId!: string;
 
     @prop()
-    public readonly createdAt!: Date;
+    public toId!: string;
 
+    @prop()
+    public createdAt!: Date;
 
-    constructor(fromUsername: string) {
-        this.fromUsername = fromUsername;
+    constructor(fromId: string, toId: string) {
+        this.fromId = fromId;
+        this.toId = toId;
         this.createdAt = new Date();
-    }
-}
-
-class UserFriends {
-
-    @prop({ type: () => Friend, _id: false })
-    public readonly friendList!: Map<string, Friend>;
-
-    @prop({ type: () => FriendRequest, _id: false })
-    public readonly requests!: Map<string, FriendRequest>;
-
-    constructor() {
-        this.friendList = new Map<string, Friend>();
-        this.requests = new Map<string, FriendRequest>();
-    }
-
-    public inviteFriend(userId: string, username: string) {
-        this.friendList.set(userId, new Friend(username, ReqState.PENDING));
-    }
-
-    public acceptRequest(userId: string) {
-        const invite = this.requests.get(userId);
-
-        if (invite) {
-            this.friendList.set(userId, new Friend(invite.fromUsername, ReqState.ACCEPTED));
-        }
     }
 }
 
 export class User{
 
-    @prop()
-    public readonly userId!: string;
+    @prop({required: true, unique: true})
+    public userId!: string;
+
+    @prop({required: true, unique: true})
+    public username!: string;
 
     @prop()
-    public readonly username!: string;
+    private picture?: string;
 
-    @prop()
-    private profilePicture?: string;
+    @prop({type: [String]})
+    public friends!: string[];
 
-    @prop()
-    public readonly friends?: UserFriends;
+    @prop({type: [FriendRequest]})
+    public requests!: FriendRequest[];
 
     constructor(userId: string, username: string, profilePicture?: string) {
         this.userId = userId;
         this.username = username;
-        this.friends = new UserFriends();
+        this.picture = profilePicture;
+        this.friends = [];
+        this.requests = [];
+    }
 
-        if (profilePicture) {
-            this.profilePicture = profilePicture;
+    hasRequestOrIsFriend(user1Id: string, user2Id: string) {
+        const hasRequest = this.requests.findIndex((req: FriendRequest) =>
+            req.fromId === user1Id && req.toId === user2Id ||
+            req.toId === user1Id && req.fromId === user2Id
+        ) === -1;
+
+        const isFriend =
+            this.friends.indexOf(user1Id) === -1 &&
+            this.friends.indexOf(user2Id) === -1;
+
+        return hasRequest || isFriend;
+    }
+
+    removeOutgoingRequest(toId: string) {
+        if (toId === this.userId)
+            return false;
+        else {
+            const requestIndex = this.requests.findIndex((req: FriendRequest) => req.toId === toId);
+
+            if (requestIndex !== -1) {
+                this.requests.splice(requestIndex, 1);
+                return true;
+            } else
+                return false;
         }
     }
 
-
-    getProfilePicture(): string | undefined {
-        return this.profilePicture;
+    addFriend(friendId: string) {
+        if (this.friends.indexOf(friendId) > -1) {
+            this.friends.push(friendId);
+        }
     }
 
-    setProfilePicture(value: string) {
-        this.profilePicture = value;
+    addIncomingRequest(fromId: string) {
+        this.requests?.push(new FriendRequest(fromId, this.userId));
     }
 
-    inviteFriend = (userId: string, username: string) => {
-        this.friends?.inviteFriend(userId, username);
+    addOutgoingRequest(toId: string) {
+        this.requests?.push(new FriendRequest(this.userId, toId));
     }
 
-    acceptRequest = (userId: string) => {
-        this.friends?.acceptRequest(userId);
+    acceptRequest(fromId: string): boolean {
+        if (this.requests) {
+            const requestIndex = this.requests.findIndex((req: FriendRequest) => req.fromId === fromId);
+
+            if (requestIndex !== -1 && this.friends.indexOf(fromId) === -1) {
+                this.friends.push(this.requests[requestIndex].fromId);
+                this.requests.splice(requestIndex, 1);
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    declineRequest(fromId: string): boolean {
+        if (this.requests) {
+            const requestIndex = this.requests.findIndex((req: FriendRequest) => req.fromId === fromId);
+
+            if (requestIndex !== -1) {
+                this.requests.splice(requestIndex, 1);
+                return true;
+            }
+            return false
+        }
+        return false;
     }
 }
-
-
 
 export const UserModel = getModelForClass(
     User,

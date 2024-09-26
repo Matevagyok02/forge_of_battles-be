@@ -1,17 +1,60 @@
-import {Router} from "express";
+import {RequestHandler, Router} from "express";
 import {UserController} from "./controllers/UserController";
 
 const router = Router();
 const userController = new UserController();
 
-const routes = [
+interface Route {
+    path: string;
+    endpoints: Endpoint[];
+}
+
+interface Endpoint {
+    path: string;
+    func: any;
+    method?: string;
+}
+
+const routes: Route[] = [
     {
         path: "user",
         endpoints: [
             {
-                path: ":id",
-                type: "GET",
+                path: "",
                 func: userController.getUser
+            },
+            {
+                path: "friends",
+                func: userController.getUserFriends
+            },
+            {
+                path: "find",
+                func: userController.getUserByUsername
+            },
+            {
+                path: "register",
+                method: "POST",
+                func: userController.registerNewUser
+            }
+        ]
+    },
+    {
+        path: "friends",
+        endpoints: [
+            {
+                path: "invite",
+                method: "PUT",
+                func: userController.sendFriendRequest
+            },
+            {
+                path: "accept",
+                method: "PUT",
+                func: userController.acceptFriendRequest
+            },
+            {
+                path: "decline",
+                method: "PUT",
+                func: userController.declineFriendRequest
             }
         ]
     }
@@ -24,22 +67,20 @@ routes.forEach(entry => {
     entry.endpoints.forEach(endpoint => {
         const fullPath = `/${path}/${endpoint.path}`;
         const func = endpoint.func;
+        const method = endpoint.method;
 
-        switch (endpoint.type) {
-            case "GET":
-                router.get(fullPath, endpoint.func);
-                break;
+        switch (method) {
             case "POST":
-                router.post(fullPath, endpoint.func);
+                router.post(fullPath, func);
                 break;
             case "PUT":
-                router.put(fullPath, endpoint.func);
+                router.put(fullPath, func);
                 break;
             case "DELETE":
-                router.delete(fullPath, endpoint.func);
+                router.delete(fullPath, func);
                 break;
             default:
-                router.get(fullPath, endpoint.func);
+                router.get(fullPath, func);
         }
     })
 })
