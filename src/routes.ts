@@ -1,49 +1,43 @@
-import {RequestHandler, Router} from "express";
+import {Router} from "express";
 import {UserController} from "./controllers/UserController";
 
 const router = Router();
 const userController = new UserController();
-
-interface Route {
-    path: string;
-    endpoints: Endpoint[];
-}
-
-interface Endpoint {
-    path: string;
-    func: any;
-    method?: string;
-}
 
 const routes: Route[] = [
     {
         path: "user",
         endpoints: [
             {
-                path: "",
-                func: userController.getUser
-            },
-            {
-                path: "friends",
-                func: userController.getUserFriends
+               path: "",
+               func: userController.getUserAndFriends
             },
             {
                 path: "find",
-                func: userController.getUserByUsername
+                func: userController.getUserByUsernameOrUserId
             },
             {
                 path: "register",
                 method: "POST",
                 func: userController.registerNewUser
+            },
+            {
+                path: "picture",
+                method: "PUT",
+                func: userController.changeUserPicture
             }
         ]
     },
     {
-        path: "friends",
+        path: "friend",
         endpoints: [
             {
-                path: "invite",
-                method: "PUT",
+                path: "online",
+                func: userController.getActiveFriends
+            },
+            {
+                path: "request",
+                method: "POST",
                 func: userController.sendFriendRequest
             },
             {
@@ -53,7 +47,7 @@ const routes: Route[] = [
             },
             {
                 path: "decline",
-                method: "PUT",
+                method: "DELETE",
                 func: userController.declineFriendRequest
             }
         ]
@@ -86,3 +80,14 @@ routes.forEach(entry => {
 })
 
 export default router;
+
+interface Route {
+    path: string;
+    endpoints: Endpoint[];
+}
+
+interface Endpoint {
+    path: string;
+    func: any;
+    method?: string;
+}

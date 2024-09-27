@@ -1,6 +1,7 @@
 import {UserService} from "../services/UserService";
 import {Request, Response} from "express";
 import {getUserId, handleServerError} from "../utils";
+import {friendReqNotification, notificationType} from "../server";
 
 const userService = new UserService();
 
@@ -11,43 +12,72 @@ interface UserCreationData {
 
 export class UserController {
 
-    async getUser(req: Request, res: Response) {
+    async getActiveFriends(req: Request, res: Response) {
+        const userId = getUserId(req);
+
+        if (userId) {
+            const activeFriends = await userService.getActiveFriends(userId);
+            res.status(200).json({activeFriends: activeFriends});
+        } else {
+            res.status(401);
+        }
+    }
+
+    async changeUserPicture(req: Request, res: Response) {
         try {
-            const queryId = req.query?.id && typeof req.query.id === "string" ? req.query.id : null;
+            const userId = getUserId(req);
+            const newPicture = req.query.id;
 
-            const userId: string | undefined = queryId ? queryId : getUserId(req);
-
-            if (!userId) {
-                res.status(400).json({ message: 'Missing user ID' });
+            if (typeof userId === "string" && typeof newPicture === "string") {
+                await userService.changeProfilePicture(userId, newPicture);
+                res.status(200).json({ message: 'Profile picture was changed successfully' });
             } else {
-                const user = await userService.getBasicUserParams(userId);
-
-                if (user) {
-                    res.status(200).json(user);
-                } else {
-                    res.status(404).json({ message: 'User not found' });
-                }
+                res.status(400).json({ message: 'Some of the required parameters are missing' });
             }
         } catch (error: any) {
             handleServerError(error, res);
         }
     }
 
-    async getUserByUsername(req: Request, res: Response) {
+    async getUserAndFriends(req: Request, res: Response) {
+        try {
+            const userId = getUserId(req);
+
+            if (typeof userId === "string") {
+                const user = await userService.getUserAndFriends(userId);
+
+                if (user)
+                    res.json(user);
+                else
+                    res.status(404).json({ message: "The user was not found"});
+            } else {
+                res.status(400).json({ message: "Missing user id"});
+            }
+        } catch (error: any) {
+            handleServerError(error, res);
+        }
+    }
+
+    async getUserByUsernameOrUserId(req: Request, res: Response) {
         try {
             const username = req.query.username;
+            const userId = req.query.id;
+            let user;
 
-            if (typeof username === "string") {
-                const user = await userService.getUserByUsername(username);
+                if (typeof username === "string" ) {
+                    user = await userService.getUserByUsername(username);
+                } else if (typeof userId === "string") {
+                    user = await userService.getUserByUserId(userId);
+                } else {
+                    res.status(400).json({ message: 'Missing search parameter'});
+                    return;
+                }
 
                 if (user) {
                     res.json(user);
                 } else {
                     res.status(404).json({ message: `The user was not found`})
                 }
-            } else {
-                res.status(403).json({ message: 'Missing search param'});
-            }
         } catch (error: any) {
             handleServerError(error, res);
         }
@@ -79,37 +109,23 @@ export class UserController {
         }
     }
 
-    async getUserFriends(req: Request, res: Response) {
-        try {
-            const userId = req.auth?.payload.sub;
-
-            if (!userId) {
-                res.status(401);
-            } else {
-                const data = await userService.getUserFriendsAndRequests(userId);
-
-                if (data?.friends || data?.requests)
-                    res.json(data);
-                else
-                    res.status(204);
-            }
-        } catch (error: any) {
-            handleServerError(error, res);
-        }
-    }
-
     async sendFriendRequest(req: Request, res: Response) {
         try {
             const toId = req.query.to;
             const fromId = getUserId(req);
 
             if (typeof toId === "string" && toId && fromId) {
-                const execute = await userService.sendFriendRequest(fromId, toId);
+                if (toId === fromId) {
+                    res.status(409).json({message: "You cannot send a friend request to yourself :("});
+                } else {
+                    const execute = await userService.sendFriendRequest(fromId, toId);
 
-                if (execute) {
-                    res.status(201).json({ message: "The request was successfully sent"});
-                } else
-                    res.status(409).json({ message: "The user you want to invite is already your friend or a friend request has been issued between you"});
+                    if (execute) {
+                        res.status(201).json({message: "The request was successfully sent"});
+                        await friendReqNotification(toId, fromId, notificationType.received);
+                    } else
+                        res.status(409).json({message: "The user you want to invite is already your friend or a friend request has been issued between you"});
+                }
             } else
                 res.status(400).json({ message: "Required request params are missing"});
         } catch (error: any) {
@@ -127,6 +143,7 @@ export class UserController {
 
                 if (execute) {
                     res.status(201).json({ message: "The request was successfully accepted"});
+                    await friendReqNotification(toId, fromId, notificationType.accepted);
                 } else
                     res.status(409).json({ message: "The request from this user was not found"});
             } else
@@ -146,6 +163,7 @@ export class UserController {
 
                 if (execute) {
                     res.status(201).json({ message: "The request was successfully declined"});
+                    await friendReqNotification(toId, fromId, notificationType.declined);
                 } else
                     res.status(409).json({ message: "The request from this user was not found"});
             } else

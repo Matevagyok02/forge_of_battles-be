@@ -1,14 +1,52 @@
 import {User, UserModel} from "../models/User";
 import {HydratedDocument} from "mongoose";
+import {getActiveFriends} from "../server";
 
 const basicParams = 'userId username profilePicture';
-const extendedParams = 'friends requests'
 
 export class UserService {
 
-    async getBasicUserParams(userId: string): Promise<User | null> {
+    async changeProfilePicture(userId: string, newPicture: string) {
         try {
-            return await UserModel.findOne({userId}, basicParams).lean();
+            const change = UserModel.updateOne(
+                {userId},
+                {picture: newPicture}
+            ).exec();
+            return !!change;
+        } catch (error: any) {
+            console.error(error);
+            return false;
+        }
+    }
+
+    async getActiveFriends(userId: string) {
+        try {
+            const friendIdList = await UserModel.findOne({userId}, 'friends').lean();
+            return await getActiveFriends(friendIdList);
+        } catch (error: any) {
+            console.error(error);
+            return null;
+        }
+    }
+
+    async getUserAndFriends(userId: string){
+        try {
+            const user = await UserModel.findOne({userId}).lean();
+
+            if (user) {
+                const friends = await UserModel.find({userId: {$in: user.friends}}, basicParams).lean();
+                return { user: user, friends: friends};
+            } else
+                return null;
+        } catch (error: any) {
+            console.error(error);
+            return null;
+        }
+    }
+
+    async getUserByUserId(userId: string): Promise<User | null> {
+        try {
+            return await UserModel.findOne({userId}, basicParams).exec();
         } catch (error: any) {
             console.error(error);
             return null;
@@ -24,24 +62,6 @@ export class UserService {
         }
     }
 
-    async getUserFriendsAndRequests(userId: string) {
-        try {
-            const friendIdList = await UserModel.findOne({userId}, extendedParams).lean();
-
-            if (friendIdList) {
-                const friends= await UserModel.find({userId: {$in: friendIdList.friends} }, basicParams).exec();
-                const requests = friendIdList.requests.length > 0 ? friendIdList.requests : undefined;
-
-                return {friends: friends, requests: requests}
-            }
-            return null;
-
-        } catch (error: any) {
-            console.error(error);
-            return null;
-        }
-    }
-
     async insertNewUser(userId: string, username: string, profilePicture?: string) {
         try {
             const alreadyExists = await UserModel.exists({userId}).exec();
@@ -49,7 +69,7 @@ export class UserService {
             if (!alreadyExists) {
                 const newUser = new User(userId, username, profilePicture);
                 await UserModel.create(newUser);
-                return true
+                return true;
             }
             else
                 return false;
@@ -78,7 +98,8 @@ export class UserService {
                 const toUser = UserModel.hydrate(users.find(user => user.userId === toId));
 
                 if (fromUser && toUser) {
-                    if (fromUser.hasRequestOrIsFriend(fromId, toId) || toUser.hasRequestOrIsFriend(fromId, toId)) {
+                    if (fromUser.hasRequestOrIsFriend(toId) || toUser.hasRequestOrIsFriend(fromId)) {
+                        console.log(1);
                         return false;
                     } else {
                         fromUser.addOutgoingRequest(toId);

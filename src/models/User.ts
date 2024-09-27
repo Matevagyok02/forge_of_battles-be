@@ -21,19 +21,19 @@ class FriendRequest {
 export class User{
 
     @prop({required: true, unique: true})
-    public userId!: string;
+    public readonly userId!: string;
 
     @prop({required: true, unique: true})
-    public username!: string;
+    public readonly username!: string;
 
     @prop()
-    private picture?: string;
+    public readonly picture?: string;
 
     @prop({type: [String]})
-    public friends!: string[];
+    public readonly friends!: string[];
 
     @prop({type: [FriendRequest]})
-    public requests!: FriendRequest[];
+    public readonly requests!: FriendRequest[];
 
     constructor(userId: string, username: string, profilePicture?: string) {
         this.userId = userId;
@@ -43,15 +43,12 @@ export class User{
         this.requests = [];
     }
 
-    hasRequestOrIsFriend(user1Id: string, user2Id: string) {
+    hasRequestOrIsFriend(userId: string) {
         const hasRequest = this.requests.findIndex((req: FriendRequest) =>
-            req.fromId === user1Id && req.toId === user2Id ||
-            req.toId === user1Id && req.fromId === user2Id
-        ) === -1;
+            req.fromId === userId || req.toId === userId
+        ) > -1;
 
-        const isFriend =
-            this.friends.indexOf(user1Id) === -1 &&
-            this.friends.indexOf(user2Id) === -1;
+        const isFriend = this.friends.indexOf(userId) > -1
 
         return hasRequest || isFriend;
     }
@@ -71,7 +68,7 @@ export class User{
     }
 
     addFriend(friendId: string) {
-        if (this.friends.indexOf(friendId) > -1) {
+        if (this.friends.indexOf(friendId) === -1) {
             this.friends.push(friendId);
         }
     }
