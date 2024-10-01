@@ -1,58 +1,49 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
-import WebSocket from "ws";
-import "./database";
+import "./mongo";
 import router from "./routes";
-import {auth} from "express-oauth2-jwt-bearer";
+import { auth } from "express-oauth2-jwt-bearer";
+import {Server} from "socket.io";
+import {createAdapter} from "@socket.io/redis-adapter";
+import {pubRedisClient, subRedisClient} from "./redis";
+
+const port = 3000;
+const corsConfig = require("../cors-config.json");
+const authConfig = require("../auth-config.json");
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
 
-//CORS configuration
-app.use(express.json());
-app.use(cors(require("../cors.config.json")));
-app.use(auth(require("../auth.config.json")));
-app.use('/', router);
+const io = new Server(
+    server,
+    { cors: corsConfig }
+);
 
-const port = 3000;
+io.adapter(createAdapter(pubRedisClient, subRedisClient));
 
-const connectedClients: Set<WebSocket> = new Set();
-wss.on('connection', (ws: WebSocket) => {
-    console.log('A new client connected.');
-    connectedClients.add(ws);
+// Handle Socket.IO connections
+io.on('connection', (socket: any) => {
+    const userId = socket.handshake.auth.userId;
 
-    // Handle incoming messages from clients
-    ws.on('message', (message: WebSocket.MessageEvent) => {
-        const data = JSON.parse(message.toString());
-        const { action, userId, messageText } = data;
-
-        if (action === 'send_message') {
-            // Broadcast message to all connected clients
-            connectedClients.forEach(client => {
-                if (client !== ws) { // Avoid sending the message back to the sender
-                    client.send(JSON.stringify({
-                        action: 'receive_message',
-                        from: userId,
-                        messageText: messageText
-                    }));
-                }
-            });
-        }
+    socket.on('register', async () => {
+        await pubRedisClient.set(userId, socket.id);
+        console.log(`User ${userId} registered with socket ${socket.id}`);
     });
 
-    // Handle disconnection
-    ws.on('close', () => {
-        console.log('A client disconnected');
-        connectedClients.delete(ws);
+    socket.on('disconnect', async () => {
+        await pubRedisClient.del(userId); // Delete the user ID key
+        console.log(`User ${userId} disconnected`);
     });
 });
 
-app.get('/test', async (req, res) => {
-    return res.send({message: 'it works!'});
-})
+export {io};
+
+app.use(express.json());
+app.use(cors(corsConfig));
+app.use(auth(authConfig));
+app.use('/', router);
 
 server.listen(port, () => {
     console.log(`The server is LIVE`);
-})
+});

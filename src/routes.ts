@@ -1,18 +1,16 @@
-import {RequestHandler, Router} from "express";
+import {Router} from "express";
 import {UserController} from "./controllers/UserController";
+import {ChatController} from "./controllers/ChatController";
 
 const router = Router();
 const userController = new UserController();
+const chatController = new ChatController();
 
-interface Route {
-    path: string;
-    endpoints: Endpoint[];
-}
-
-interface Endpoint {
-    path: string;
-    func: any;
-    method?: string;
+enum HttpMethod {
+    GET = 'GET',
+    POST = 'POST',
+    PUT = 'PUT',
+    DELETE = 'DELETE'
 }
 
 const routes: Route[] = [
@@ -20,41 +18,60 @@ const routes: Route[] = [
         path: "user",
         endpoints: [
             {
-                path: "",
-                func: userController.getUser
-            },
-            {
-                path: "friends",
-                func: userController.getUserFriends
+               path: "",
+               func: userController.getUserAndFriends
             },
             {
                 path: "find",
-                func: userController.getUserByUsername
+                func: userController.getUserByUsernameOrUserId
             },
             {
                 path: "register",
-                method: "POST",
+                method: HttpMethod.POST,
                 func: userController.registerNewUser
+            },
+            {
+                path: "picture",
+                method: HttpMethod.PUT,
+                func: userController.changeUserPicture
             }
         ]
     },
     {
-        path: "friends",
+        path: "friend",
         endpoints: [
             {
-                path: "invite",
-                method: "PUT",
+                path: "online",
+                func: userController.getActiveFriends
+            },
+            {
+                path: "request",
+                method: HttpMethod.POST,
                 func: userController.sendFriendRequest
             },
             {
                 path: "accept",
-                method: "PUT",
+                method: HttpMethod.PUT,
                 func: userController.acceptFriendRequest
             },
             {
                 path: "decline",
-                method: "PUT",
+                method: HttpMethod.DELETE,
                 func: userController.declineFriendRequest
+            }
+        ]
+    },
+    {
+        path: "chat",
+        endpoints: [
+            {
+                path: "",
+                func: chatController.getMessages
+            },
+            {
+                path: "",
+                method: HttpMethod.POST,
+                func: chatController.sendMessage
             }
         ]
     }
@@ -70,13 +87,13 @@ routes.forEach(entry => {
         const method = endpoint.method;
 
         switch (method) {
-            case "POST":
+            case HttpMethod.POST:
                 router.post(fullPath, func);
                 break;
-            case "PUT":
+            case HttpMethod.PUT:
                 router.put(fullPath, func);
                 break;
-            case "DELETE":
+            case HttpMethod.DELETE:
                 router.delete(fullPath, func);
                 break;
             default:
@@ -86,3 +103,14 @@ routes.forEach(entry => {
 })
 
 export default router;
+
+interface Route {
+    path: string;
+    endpoints: Endpoint[];
+}
+
+interface Endpoint {
+    path: string;
+    func: any;
+    method?: HttpMethod;
+}

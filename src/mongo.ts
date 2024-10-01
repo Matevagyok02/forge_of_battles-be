@@ -1,7 +1,7 @@
 let mongoose = require('mongoose');
-const uri = process.env.FOB_DB_URI;
+const uri = process.env.FOB_MONGO_URI;
 
-class Database {
+class Mongo {
     constructor() {
         this._connect();
     }
@@ -10,12 +10,12 @@ class Database {
         mongoose
             .connect(uri)
             .then(() => {
-                console.log('Successfully connected to the database!');
+                console.log('MongoDB connected');
             })
             .catch(() => {
-                console.error('Error while connecting to database...');
+                console.error('MongoDB connection failed...');
             });
     }
 }
 
-module.exports = new Database();
+module.exports = new Mongo();

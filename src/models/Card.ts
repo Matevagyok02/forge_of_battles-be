@@ -1,31 +1,31 @@
-import {PassiveAbility, ActionAbility} from "./Abilities";
+import {IAbility} from "./Ability";
 import {getModelForClass, prop} from "@typegoose/typegoose";
 
 export class Card {
 
     @prop({required: true})
-    public readonly id!: string;
+    readonly id!: string;
 
     @prop({required: true})
-    public readonly name!: string;
+    readonly name!: string;
 
     @prop()
-    public readonly deck!: string;
+    readonly deck!: string;
 
     @prop()
-    public readonly attack!: number;
+    readonly attack!: number;
 
     @prop()
-    public readonly defence!: number;
+    readonly defence!: number;
 
     @prop()
-    public readonly cost!: number;
+    readonly cost!: number;
 
     @prop()
-    public readonly passive!: PassiveAbility;
+    readonly passive!: IAbility;
 
     @prop()
-    public readonly action!: ActionAbility;
+    readonly action!: IAbility;
 
 }
 
