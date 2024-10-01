@@ -1,7 +1,7 @@
 import {UserService} from "../services/UserService";
 import {Request, Response} from "express";
 import {getUserId, handleServerError} from "../utils";
-import {friendReqNotification, notificationType} from "../server";
+import {friendRequest, NotificationType} from "../notifications";
 
 const userService = new UserService();
 
@@ -13,13 +13,17 @@ interface UserCreationData {
 export class UserController {
 
     async getActiveFriends(req: Request, res: Response) {
-        const userId = getUserId(req);
+        try {
+            const userId = getUserId(req);
 
-        if (userId) {
-            const activeFriends = await userService.getActiveFriends(userId);
-            res.status(200).json({activeFriends: activeFriends});
-        } else {
-            res.status(401);
+            if (userId) {
+                const activeFriends = await userService.getActiveFriends(userId);
+                res.status(200).json({activeFriends: activeFriends});
+            } else {
+                res.status(401);
+            }
+        } catch (error: any) {
+            handleServerError(error, res);
         }
     }
 
@@ -122,7 +126,7 @@ export class UserController {
 
                     if (execute) {
                         res.status(201).json({message: "The request was successfully sent"});
-                        await friendReqNotification(toId, fromId, notificationType.received);
+                        await friendRequest(toId, fromId, NotificationType.Received);
                     } else
                         res.status(409).json({message: "The user you want to invite is already your friend or a friend request has been issued between you"});
                 }
@@ -143,7 +147,7 @@ export class UserController {
 
                 if (execute) {
                     res.status(201).json({ message: "The request was successfully accepted"});
-                    await friendReqNotification(toId, fromId, notificationType.accepted);
+                    await friendRequest(toId, fromId, NotificationType.Accepted);
                 } else
                     res.status(409).json({ message: "The request from this user was not found"});
             } else
@@ -163,7 +167,7 @@ export class UserController {
 
                 if (execute) {
                     res.status(201).json({ message: "The request was successfully declined"});
-                    await friendReqNotification(toId, fromId, notificationType.declined);
+                    await friendRequest(toId, fromId, NotificationType.Declined);
                 } else
                     res.status(409).json({ message: "The request from this user was not found"});
             } else

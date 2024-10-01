@@ -4,7 +4,7 @@ import {Response, Request} from "express";
 const CHAR_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 //generates a key for joining a games
-const generateKey = (length: number): string => {
+export const generateKey = (length: number): string => {
     const currentTime = Date.now().toString();
 
     const randomChars = Array(4)
@@ -40,4 +40,8 @@ export const handleServerError = (error: any, res: Response) => {
 //parse user id from request
 export const getUserId = (req: Request): string | undefined => {
     return req.auth?.payload.sub;
+}
+
+export const isUpdateSuccessful = (update: any) => {
+    return update.matchedCount > 0 || update.modifiedCount > 0 || update.upsertedCount > 0;
 }

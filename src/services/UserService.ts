@@ -1,6 +1,7 @@
 import {User, UserModel} from "../models/User";
 import {HydratedDocument} from "mongoose";
-import {getActiveFriends} from "../server";
+import {getActiveFriends} from "../notifications";
+import {isUpdateSuccessful} from "../utils";
 
 const basicParams = 'userId username profilePicture';
 
@@ -8,11 +9,12 @@ export class UserService {
 
     async changeProfilePicture(userId: string, newPicture: string) {
         try {
-            const change = UserModel.updateOne(
+            const update = await UserModel.updateOne(
                 {userId},
                 {picture: newPicture}
-            ).exec();
-            return !!change;
+            ).lean();
+
+            return isUpdateSuccessful(update);
         } catch (error: any) {
             console.error(error);
             return false;
@@ -46,7 +48,7 @@ export class UserService {
 
     async getUserByUserId(userId: string): Promise<User | null> {
         try {
-            return await UserModel.findOne({userId}, basicParams).exec();
+            return await UserModel.findOne({userId}, basicParams).lean();
         } catch (error: any) {
             console.error(error);
             return null;
@@ -64,7 +66,7 @@ export class UserService {
 
     async insertNewUser(userId: string, username: string, profilePicture?: string) {
         try {
-            const alreadyExists = await UserModel.exists({userId}).exec();
+            const alreadyExists = await UserModel.exists({userId}).lean();
 
             if (!alreadyExists) {
                 const newUser = new User(userId, username, profilePicture);
@@ -182,11 +184,19 @@ export class UserService {
         try {
             const users: HydratedDocument<User>[] = await UserModel.find({ userId: { $in: userIds } }).exec();
 
-            // Return the users found, or an empty array if none found
             return users.length > 0 ? users : [];
         } catch (error: any) {
-            console.error("Error fetching users: ", error);
-            return [];  // Return empty array on error
+            console.error(error);
+            return [];
+        }
+    }
+
+    async areFriends(user1Id: string, user2Id: string) {
+        try {
+            return !! await UserModel.exists({userId: user1Id, friends: {$in: [user2Id]} }).lean();
+        } catch (error: any) {
+            console.error(error);
+            return false;
         }
     }
 }

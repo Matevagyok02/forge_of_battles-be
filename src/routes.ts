@@ -1,8 +1,17 @@
 import {Router} from "express";
 import {UserController} from "./controllers/UserController";
+import {ChatController} from "./controllers/ChatController";
 
 const router = Router();
 const userController = new UserController();
+const chatController = new ChatController();
+
+enum HttpMethod {
+    GET = 'GET',
+    POST = 'POST',
+    PUT = 'PUT',
+    DELETE = 'DELETE'
+}
 
 const routes: Route[] = [
     {
@@ -18,12 +27,12 @@ const routes: Route[] = [
             },
             {
                 path: "register",
-                method: "POST",
+                method: HttpMethod.POST,
                 func: userController.registerNewUser
             },
             {
                 path: "picture",
-                method: "PUT",
+                method: HttpMethod.PUT,
                 func: userController.changeUserPicture
             }
         ]
@@ -37,18 +46,32 @@ const routes: Route[] = [
             },
             {
                 path: "request",
-                method: "POST",
+                method: HttpMethod.POST,
                 func: userController.sendFriendRequest
             },
             {
                 path: "accept",
-                method: "PUT",
+                method: HttpMethod.PUT,
                 func: userController.acceptFriendRequest
             },
             {
                 path: "decline",
-                method: "DELETE",
+                method: HttpMethod.DELETE,
                 func: userController.declineFriendRequest
+            }
+        ]
+    },
+    {
+        path: "chat",
+        endpoints: [
+            {
+                path: "",
+                func: chatController.getMessages
+            },
+            {
+                path: "",
+                method: HttpMethod.POST,
+                func: chatController.sendMessage
             }
         ]
     }
@@ -64,13 +87,13 @@ routes.forEach(entry => {
         const method = endpoint.method;
 
         switch (method) {
-            case "POST":
+            case HttpMethod.POST:
                 router.post(fullPath, func);
                 break;
-            case "PUT":
+            case HttpMethod.PUT:
                 router.put(fullPath, func);
                 break;
-            case "DELETE":
+            case HttpMethod.DELETE:
                 router.delete(fullPath, func);
                 break;
             default:
@@ -89,5 +112,5 @@ interface Route {
 interface Endpoint {
     path: string;
     func: any;
-    method?: string;
+    method?: HttpMethod;
 }

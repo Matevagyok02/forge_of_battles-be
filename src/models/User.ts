@@ -3,13 +3,13 @@ import {getModelForClass, prop} from "@typegoose/typegoose";
 class FriendRequest {
 
     @prop()
-    public fromId!: string;
+    readonly fromId!: string;
 
     @prop()
-    public toId!: string;
+    readonly toId!: string;
 
     @prop()
-    public createdAt!: Date;
+    readonly createdAt!: Date;
 
     constructor(fromId: string, toId: string) {
         this.fromId = fromId;
@@ -21,19 +21,19 @@ class FriendRequest {
 export class User{
 
     @prop({required: true, unique: true})
-    public readonly userId!: string;
+    readonly userId!: string;
 
     @prop({required: true, unique: true})
-    public readonly username!: string;
+    readonly username!: string;
 
     @prop()
-    public readonly picture?: string;
+    readonly picture?: string;
 
     @prop({type: [String]})
-    public readonly friends!: string[];
+    readonly friends!: string[];
 
-    @prop({type: [FriendRequest]})
-    public readonly requests!: FriendRequest[];
+    @prop({type: [FriendRequest], _id: false})
+    readonly requests!: FriendRequest[];
 
     constructor(userId: string, username: string, profilePicture?: string) {
         this.userId = userId;
