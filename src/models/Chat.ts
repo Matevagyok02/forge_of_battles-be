@@ -8,9 +8,13 @@ export class Message {
     @prop()
     readonly messageText!: string;
 
+    @prop()
+    readonly createdAt!: Date;
+
     constructor(senderId: string, messageText: string) {
         this.senderId = senderId;
         this.messageText = messageText;
+        this.createdAt = new Date();
     }
 }
 

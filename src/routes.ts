@@ -98,6 +98,7 @@ routes.forEach(entry => {
                 break;
             default:
                 router.get(fullPath, func);
+                break;
         }
     })
 })

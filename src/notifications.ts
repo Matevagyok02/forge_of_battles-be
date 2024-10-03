@@ -21,15 +21,21 @@ export const chatMessage = async (receiverId: string, senderId: string, message:
     }
 }
 
-export const getActiveFriends = async (friendIds: any): Promise<string[]> => {
-    const activeFriends: string[] = [];
+export const getActiveFriends = async (friendIds: any): Promise<OnlineFriend[]> => {
+    const activeFriends: OnlineFriend[] = [];
     const activeValues = await pubRedisClient.mget(friendIds);
     friendIds.forEach((friend: string, index: number) => {
-        if (activeValues[index]) {
-            activeFriends.push(friend);
+        if (activeValues[index] !== undefined) {
+            const busy = activeValues[index] === ".";
+            activeFriends.push({userId: friend, busy: busy});
         }
     })
     return activeFriends;
+}
+
+interface OnlineFriend {
+    userId: string;
+    busy: boolean;
 }
 
 export enum NotificationType {
