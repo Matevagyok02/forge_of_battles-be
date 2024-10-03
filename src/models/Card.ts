@@ -1,13 +1,35 @@
-import mongoose from 'mongoose';
+import {IAbility} from "./Ability";
+import {getModelForClass, prop} from "@typegoose/typegoose";
 
-const cardSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    attack: { type: Number, required: true },
-    defense: { type: Number, required: true },
-    description: { type: String, required: false }
-});
+export class Card {
 
-// Create a Mongoose model for the 'Card' collection
-const Card = mongoose.model('cards', cardSchema);
+    @prop({required: true})
+    readonly id!: string;
 
-export default Card;
+    @prop({required: true})
+    readonly name!: string;
+
+    @prop()
+    readonly deck!: string;
+
+    @prop()
+    readonly attack!: number;
+
+    @prop()
+    readonly defence!: number;
+
+    @prop()
+    readonly cost!: number;
+
+    @prop()
+    readonly passive!: IAbility;
+
+    @prop()
+    readonly action!: IAbility;
+
+}
+
+export const CardModel = getModelForClass(
+    Card,
+    {schemaOptions: {collection: 'cards'}}
+);

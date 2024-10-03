@@ -1,0 +1,5 @@
+{
+  "audience": "https://forge-of-battles-be.onrender.com",
+  "issuerBaseURL": "https://dev-58nywxjmv52aaecl.eu.auth0.com/",
+  "tokenSigningAlg": "RS256"
+}
