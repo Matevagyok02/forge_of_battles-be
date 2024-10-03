@@ -23,16 +23,18 @@ const io = new Server(
 io.adapter(createAdapter(pubRedisClient, subRedisClient));
 
 // Handle Socket.IO connections
-io.on('connection', (socket: any) => {
+io.on("connection", (socket: any) => {
     const userId = socket.handshake.auth.userId;
+    if (typeof userId !== "string")
+        return;
 
-    socket.on('register', async () => {
+    socket.on("register", async () => {
         await pubRedisClient.set(userId, socket.id);
         console.log(`User ${userId} registered with socket ${socket.id}`);
     });
 
-    socket.on('disconnect', async () => {
-        await pubRedisClient.del(userId); // Delete the user ID key
+    socket.on("disconnect", async () => {
+        await pubRedisClient.del(userId);
         console.log(`User ${userId} disconnected`);
     });
 });
@@ -42,8 +44,8 @@ export {io};
 app.use(express.json());
 app.use(cors(corsConfig));
 app.use(auth(authConfig));
-app.use('/', router);
+app.use("/", router);
 
 server.listen(port, () => {
-    console.log(`The server is LIVE`);
+    console.log("The server is LIVE");
 });
