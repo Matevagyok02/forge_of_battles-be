@@ -1,9 +1,8 @@
 import {User, UserModel} from "../models/User";
-import {HydratedDocument} from "mongoose";
-import {getActiveFriends} from "../notifications";
 import {isUpdateSuccessful} from "../utils";
+import {DuplicateOptionsError} from "@typegoose/typegoose/lib/internal/errors";
 
-const basicParams = 'userId username profilePicture';
+const basicParams = "userId username profilePicture";
 
 export class UserService {
 
@@ -18,16 +17,6 @@ export class UserService {
         } catch (error: any) {
             console.error(error);
             return false;
-        }
-    }
-
-    async getActiveFriends(userId: string) {
-        try {
-            const friendIdList = await UserModel.findOne({userId}, 'friends').lean();
-            return await getActiveFriends(friendIdList);
-        } catch (error: any) {
-            console.error(error);
-            return null;
         }
     }
 
@@ -66,17 +55,11 @@ export class UserService {
 
     async insertNewUser(userId: string, username: string, profilePicture?: string) {
         try {
-            const alreadyExists = await UserModel.exists({userId}).lean();
-
-            if (!alreadyExists) {
-                const newUser = new User(userId, username, profilePicture);
-                await UserModel.create(newUser);
-                return true;
-            }
-            else
-                return false;
+            const newUser = new User(userId, username, profilePicture);
+            return !!await UserModel.create(newUser);
         } catch (error: any) {
-            console.error(error);
+            if (error !instanceof DuplicateOptionsError)
+                console.error(error);
             return false;
         }
     }
@@ -87,107 +70,6 @@ export class UserService {
         } catch (error: any) {
             console.error(error);
             return true;
-        }
-    }
-
-    async sendFriendRequest(fromId: string, toId: string) {
-        try {
-            const userIds = [fromId, toId];
-            const users: User[] | null = await this.getUsersById(userIds);
-
-            if (users) {
-                const fromUser = UserModel.hydrate(users.find(user => user.userId === fromId));
-                const toUser = UserModel.hydrate(users.find(user => user.userId === toId));
-
-                if (fromUser && toUser) {
-                    if (fromUser.hasRequestOrIsFriend(toId) || toUser.hasRequestOrIsFriend(fromId)) {
-                        console.log(1);
-                        return false;
-                    } else {
-                        fromUser.addOutgoingRequest(toId);
-                        toUser.addIncomingRequest(fromId);
-
-                        const save =
-                            await fromUser.save() &&
-                            await toUser.save()
-                        ;
-
-                        return !!save;
-                    }
-                } else
-                    return false;
-            } else
-                return false;
-        } catch (error: any) {
-            console.error(error);
-            return false;
-        }
-    }
-
-    async acceptFriendRequest(senderId: string, receiverId: string) {
-        try {
-            const userIds = [senderId, receiverId];
-            const users = await this.getUsersById(userIds);
-
-            if (users) {
-                const senderUser = UserModel.hydrate(users.find(user => user.userId === senderId));
-                const receiverUser = UserModel.hydrate(users.find(user => user.userId === receiverId));
-
-                if (senderUser && receiverUser) {
-                    const remove = senderUser.removeOutgoingRequest(receiverId);
-                    senderUser.addFriend(receiverId);
-                    const accept = receiverUser.acceptRequest(senderId);
-
-                    const save =
-                        await senderUser.save() &&
-                        await receiverUser.save();
-
-                    return !!save && remove && accept;
-                } else
-                    return false;
-            } else
-                return false;
-        } catch (error: any) {
-            console.error(error);
-            return true;
-        }
-    }
-
-    async declineFriendRequest(senderId: string, receiverId: string) {
-        try {
-            const userIds = [senderId, receiverId];
-            const users: User[] | null = await this.getUsersById(userIds);
-
-            if (users && users.length > 0) {
-                const senderUser = UserModel.hydrate(users.find(user => user.userId === senderId));
-                const receiverUser = UserModel.hydrate(users.find(user => user.userId === receiverId));
-
-                if (senderUser && receiverUser) {
-                    const remove = senderUser.removeOutgoingRequest(receiverId);
-                    const decline = receiverUser.declineRequest(senderId);
-
-                    const save =
-                        await senderUser.save() &&
-                        await receiverUser.save();
-
-                    return !!save && remove && decline;
-                }
-            } else
-                return false;
-        } catch (error: any) {
-            console.error(error);
-            return true;
-        }
-    }
-
-    async getUsersById(userIds: string[]): Promise<HydratedDocument<User>[] |null> {
-        try {
-            const users: HydratedDocument<User>[] = await UserModel.find({ userId: { $in: userIds } }).exec();
-
-            return users.length > 0 ? users : [];
-        } catch (error: any) {
-            console.error(error);
-            return [];
         }
     }
 

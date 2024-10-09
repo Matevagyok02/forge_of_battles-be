@@ -1,117 +1,57 @@
 import {Router} from "express";
 import {UserController} from "./controllers/UserController";
 import {ChatController} from "./controllers/ChatController";
+import {MatchController} from "./controllers/MatchController";
+import {FriendController} from "./controllers/FriendController";
+import {checkUserId} from "./middleware";
+import {UserService} from "./services/UserService";
+import {FriendService} from "./services/FriendService";
+import {MatchService} from "./services/MatchService";
+import {ChatService} from "./services/ChatService";
+import NotificationService from "./services/NotificationService";
 
 const router = Router();
-const userController = new UserController();
-const chatController = new ChatController();
+const userService = new UserService();
+const friendService = new FriendService();
+const matchService = new MatchService();
+const chatService = new ChatService();
+const notificationService = new NotificationService();
 
-enum HttpMethod {
-    GET = 'GET',
-    POST = 'POST',
-    PUT = 'PUT',
-    DELETE = 'DELETE'
-}
+const userController = new UserController(userService);
+const friendController = new FriendController(friendService, notificationService);
+const matchController = new MatchController(matchService, userService, notificationService);
+const chatController = new ChatController(chatService);
 
-const routes: Route[] = [
-    {
-        path: "user",
-        endpoints: [
-            {
-               path: "",
-               func: userController.getUserAndFriends
-            },
-            {
-                path: "find",
-                func: userController.getUserByUsernameOrUserId
-            },
-            {
-                path: "register",
-                method: HttpMethod.POST,
-                func: userController.registerNewUser
-            },
-            {
-                path: "picture",
-                method: HttpMethod.PUT,
-                func: userController.changeUserPicture
-            }
-        ]
-    },
-    {
-        path: "friend",
-        endpoints: [
-            {
-                path: "online",
-                func: userController.getActiveFriends
-            },
-            {
-                path: "request",
-                method: HttpMethod.POST,
-                func: userController.sendFriendRequest
-            },
-            {
-                path: "accept",
-                method: HttpMethod.PUT,
-                func: userController.acceptFriendRequest
-            },
-            {
-                path: "decline",
-                method: HttpMethod.DELETE,
-                func: userController.declineFriendRequest
-            }
-        ]
-    },
-    {
-        path: "chat",
-        endpoints: [
-            {
-                path: "",
-                func: chatController.getMessages
-            },
-            {
-                path: "",
-                method: HttpMethod.POST,
-                func: chatController.sendMessage
-            }
-        ]
-    }
-];
+router.use(checkUserId);
 
-//sets up all routes
-routes.forEach(entry => {
-    const path = entry.path;
+const userRouter = Router();
+const friendRouter = Router();
+const chatRouter = Router();
+const matchRouter = Router();
 
-    entry.endpoints.forEach(endpoint => {
-        const fullPath = `/${path}/${endpoint.path}`;
-        const func = endpoint.func;
-        const method = endpoint.method;
+userRouter.get(``, userController.getUserAndFriends);
+userRouter.get(`/find`, userController.getUserByUsernameOrUserId);
+userRouter.post(`/register`, userController.registerNewUser);
+userRouter.put(`/picture`, userController.changeUserPicture);
 
-        switch (method) {
-            case HttpMethod.POST:
-                router.post(fullPath, func);
-                break;
-            case HttpMethod.PUT:
-                router.put(fullPath, func);
-                break;
-            case HttpMethod.DELETE:
-                router.delete(fullPath, func);
-                break;
-            default:
-                router.get(fullPath, func);
-                break;
-        }
-    })
-})
+
+friendRouter.get(`/online`, friendController.getOnlineFriends);
+friendRouter.post(`/request`, friendController.sendFriendRequest);
+friendRouter.put(`/accept`, friendController.acceptFriendRequest);
+friendRouter.delete(`/decline`, friendController.declineFriendRequest);
+
+chatRouter.get(``, chatController.get);
+chatRouter.get(`/unseen`, chatController.getUnseenMessages);
+chatRouter.post(``, chatController.send);
+
+matchRouter.get(``, matchController.getActiveMatches);
+matchRouter.post(`/create`, matchController.create);
+matchRouter.put(`/join`, matchController.join);
+matchRouter.delete(`/decline`, matchController.decline);
+
+router.use(`/user`, userRouter);
+router.use(`/friend`, friendRouter);
+router.use(`/chat`, chatRouter);
+router.use(`/match`, matchRouter);
 
 export default router;
-
-interface Route {
-    path: string;
-    endpoints: Endpoint[];
-}
-
-interface Endpoint {
-    path: string;
-    func: any;
-    method?: HttpMethod;
-}

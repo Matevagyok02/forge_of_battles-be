@@ -1,20 +1,26 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
-import "./mongo";
+import "./Mongo";
 import router from "./routes";
 import { auth } from "express-oauth2-jwt-bearer";
 import {Server} from "socket.io";
 import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
+import BattleSocketController from "./controllers/BattleSocketController";
+import {BattleService} from "./services/BattleService";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
 const authConfig = require("../auth-config.json");
 
 const app = express();
-const server = http.createServer(app);
+app.use(express.json());
+app.use(cors(corsConfig));
+app.use(auth(authConfig));
+app.use("/", router);
 
+const server = http.createServer(app);
 const io = new Server(
     server,
     { cors: corsConfig }
@@ -22,7 +28,6 @@ const io = new Server(
 
 io.adapter(createAdapter(pubRedisClient, subRedisClient));
 
-// Handle Socket.IO connections
 io.on("connection", (socket: any) => {
     const userId = socket.handshake.auth.userId;
     if (typeof userId !== "string")
@@ -30,21 +35,27 @@ io.on("connection", (socket: any) => {
 
     socket.on("register", async () => {
         await pubRedisClient.set(userId, socket.id);
-        console.log(`User ${userId} registered with socket ${socket.id}`);
     });
 
     socket.on("disconnect", async () => {
         await pubRedisClient.del(userId);
-        console.log(`User ${userId} disconnected`);
     });
+
+
+    new BattleSocketController(io, new BattleService()).setUp();
 });
 
-export {io};
+export const sendChatMessage = async (senderId: string, receiverId: string, text: string, receiverSocketId: string) => {
+    io.to(receiverSocketId).emit(
+        "chat-message",
+        {
+            from: senderId,
+            text: text
+        }
+    );
+}
 
-app.use(express.json());
-app.use(cors(corsConfig));
-app.use(auth(authConfig));
-app.use("/", router);
+export {io}
 
 server.listen(port, () => {
     console.log("The server is LIVE");
