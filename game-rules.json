@@ -1,0 +1,6 @@
+{
+  "joinKeyLength": 6,
+  "keyCharacterPool": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  "penaltyTimeout": 15,
+  "inactivityTime": 20
+}

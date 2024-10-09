@@ -9,7 +9,7 @@ export interface IAbility {
     useAbility(): Battle | null;
 }
 
- abstract class Ability implements IAbility{
+ export abstract class Ability implements IAbility{
 
     @prop()
     readonly description!: string;
@@ -28,6 +28,6 @@ export interface IAbility {
 
 export class Kill extends Ability {
     useAbility(): Battle | null {
-        return new Battle();
+        return null;
     }
 }

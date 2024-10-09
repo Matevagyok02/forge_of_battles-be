@@ -29,6 +29,9 @@ export class User{
     @prop()
     readonly picture?: string;
 
+    @prop()
+    readonly penaltyCreatedAt?: Date;
+
     @prop({type: [String]})
     readonly friends!: string[];
 

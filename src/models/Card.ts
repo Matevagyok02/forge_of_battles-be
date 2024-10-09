@@ -1,4 +1,4 @@
-import {IAbility} from "./Ability";
+import {Ability, IAbility} from "./Ability";
 import {getModelForClass, prop} from "@typegoose/typegoose";
 
 export class Card {
@@ -10,7 +10,7 @@ export class Card {
     readonly name!: string;
 
     @prop()
-    readonly deck!: string;
+    readonly deck!: Deck;
 
     @prop()
     readonly attack!: number;
@@ -21,10 +21,10 @@ export class Card {
     @prop()
     readonly cost!: number;
 
-    @prop()
+    @prop({ type: Ability, _id: false })
     readonly passive!: IAbility;
 
-    @prop()
+    @prop({ type: Ability, _id: false })
     readonly action!: IAbility;
 
 }
@@ -33,3 +33,8 @@ export const CardModel = getModelForClass(
     Card,
     {schemaOptions: {collection: 'cards'}}
 );
+
+export enum Deck {
+    LIGHT = "light",
+    SHADOW = "shadow"
+}

@@ -18,26 +18,28 @@ export class Message {
     }
 }
 
+export class ChatUser {
+
+    @prop()
+    readonly userId!: string;
+
+    @prop()
+    readonly lastSeenAt?: Date;
+
+    constructor(userId: string, active: boolean) {
+        this.userId = userId;
+        this.lastSeenAt = active ? new Date() : undefined;
+    }
+}
+
 export class Chat {
 
-    @prop()
-    readonly user1Id!: string;
-
-    @prop()
-    readonly user2Id!: string;
+    @prop({ type: [ChatUser], _id: false })
+    readonly users!: ChatUser[];
 
     @prop({type: [Message], _id: false})
     readonly messages!: Message[];
 
-    constructor(user1Id: string, user2Id: string) {
-        this.user1Id = user1Id;
-        this.user2Id = user2Id;
-        this.messages = [];
-    }
-
-    addMessage(sender: string, message: string) {
-        this.messages.push(new Message(sender, message));
-    }
 }
 
 export const ChatModel = getModelForClass(
