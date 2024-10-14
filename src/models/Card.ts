@@ -1,6 +1,8 @@
-import {Ability, IAbility} from "./Ability";
-import {getModelForClass, prop} from "@typegoose/typegoose";
+import {Ability} from "./Ability";
+import {getModelForClass, modelOptions, prop, Severity} from "@typegoose/typegoose";
+import {Effect} from "./Effect";
 
+@modelOptions({ options: { allowMixed: Severity.ALLOW } })
 export class Card {
 
     @prop({required: true})
@@ -13,25 +15,24 @@ export class Card {
     readonly deck!: Deck;
 
     @prop()
-    readonly attack!: number;
+    attack!: number;
 
     @prop()
-    readonly defence!: number;
+    defence!: number;
 
     @prop()
-    readonly cost!: number;
+    cost!: number;
 
-    @prop({ type: Ability, _id: false })
-    readonly passive!: IAbility;
+    @prop({ _id: false })
+    readonly passiveEffect!: Effect ;
 
-    @prop({ type: Ability, _id: false })
-    readonly action!: IAbility;
-
+    @prop({ _id: false })
+    readonly actionAbility!: Ability;
 }
 
 export const CardModel = getModelForClass(
     Card,
-    {schemaOptions: {collection: 'cards'}}
+    { schemaOptions: {collection: 'cards' } }
 );
 
 export enum Deck {

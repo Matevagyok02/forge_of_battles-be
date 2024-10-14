@@ -50,6 +50,16 @@ class NotificationService {
             io.to(socket).emit("match-invite-declined", match);
         }
     }
+
+    sendChatMessage = async (senderId: string, receiverId: string, text: string, receiverSocketId: string) => {
+        io.to(receiverSocketId).emit(
+            "chat-message",
+            {
+                from: senderId,
+                text: text
+            }
+        );
+    }
 }
 
 export default NotificationService;

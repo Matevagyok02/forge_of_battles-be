@@ -8,7 +8,6 @@ import {Server} from "socket.io";
 import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
 import BattleSocketController from "./controllers/BattleSocketController";
-import {BattleService} from "./services/BattleService";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
@@ -40,23 +39,11 @@ io.on("connection", (socket: any) => {
     socket.on("disconnect", async () => {
         await pubRedisClient.del(userId);
     });
-
-
-    new BattleSocketController(io, new BattleService()).setUp();
 });
-
-export const sendChatMessage = async (senderId: string, receiverId: string, text: string, receiverSocketId: string) => {
-    io.to(receiverSocketId).emit(
-        "chat-message",
-        {
-            from: senderId,
-            text: text
-        }
-    );
-}
 
 export {io}
 
 server.listen(port, () => {
+    new BattleSocketController(io).setUp();
     console.log("The server is LIVE");
 });

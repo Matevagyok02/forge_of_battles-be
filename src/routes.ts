@@ -20,7 +20,7 @@ const notificationService = new NotificationService();
 const userController = new UserController(userService);
 const friendController = new FriendController(friendService, notificationService);
 const matchController = new MatchController(matchService, userService, notificationService);
-const chatController = new ChatController(chatService);
+const chatController = new ChatController(chatService, notificationService);
 
 router.use(checkUserId);
 
@@ -33,7 +33,6 @@ userRouter.get(``, userController.getUserAndFriends);
 userRouter.get(`/find`, userController.getUserByUsernameOrUserId);
 userRouter.post(`/register`, userController.registerNewUser);
 userRouter.put(`/picture`, userController.changeUserPicture);
-
 
 friendRouter.get(`/online`, friendController.getOnlineFriends);
 friendRouter.post(`/request`, friendController.sendFriendRequest);
