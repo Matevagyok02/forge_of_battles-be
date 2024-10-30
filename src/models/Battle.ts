@@ -1,151 +1,9 @@
-import {prop, PropType} from "@typegoose/typegoose";
+import {prop} from "@typegoose/typegoose";
 import {Deck} from "./Card";
-import {shuffleArray} from "../utils";
-import {Error} from "mongoose";
+import {PlayerState, Pos} from "./PlayerState";
+import {Abilities, TriggerEvent} from "./Abilities";
 
-enum CardPosition {
-    ATTACKER = "attacker",
-    SUPPORTER = "supporter",
-    DEFENDER = "defender",
-    FRONT_LINER = "frontLiner",
-    VANGUARD = "vanguard"
-}
-
-class TimeLeft {
-
-    @prop()
-    private turnStartedAt: number;
-
-    @prop()
-    private timeLeft: number;
-
-    constructor(timeLeft: number) {
-        this.turnStartedAt = 0;
-        this.timeLeft = timeLeft;
-    }
-
-    startTurn() {
-        this.turnStartedAt = new Date().getTime()
-    }
-
-    endTurn() {
-        this.timeLeft = new Date().getTime() - this.turnStartedAt;
-    }
-
-    hasTimeLeft(): boolean {
-        return this.timeLeft > 1000;
-    }
-}
-
-class PlayerState {
-
-    @prop()
-    readonly deck: Deck;
-
-    @prop({type: [String]})
-    readonly drawingDeck: string[];
-
-    @prop({type: [String]})
-    readonly casualties: string[]; //array of card ids in the discard pool
-
-    @prop({type: [String]})
-    readonly onHand: string[]; //array of card ids in the players hand
-
-    @prop({type: [Boolean]})
-    readonly mana: boolean[]; //each member represents 1 mana, true if it is ready for use, false if not
-
-    @prop({ type: String, _id: false }, PropType.MAP)
-    readonly deployedCards: Map<CardPosition, string>;
-
-    @prop()
-    private drawsPerTurn!: number;
-
-    @prop({ _id: false })
-    readonly timeLeft?: TimeLeft; //milliseconds
-
-    constructor(deckId: Deck, timeLeft?: number) {
-        this.deck = deckId;
-        this.drawingDeck = this.assembleAndShuffleDeck(deckId);
-        this.casualties = [];
-        this.onHand = [];
-        this.mana = [];
-        this.deployedCards = new Map<CardPosition, string>();
-        this.drawsPerTurn = 0;
-        if (timeLeft) {
-            this.timeLeft = new TimeLeft(timeLeft);
-        }
-    }
-
-    deployCard(cardId: string, position: CardPosition) {
-        if (!this.deployedCards.get(position)) {
-            this.deployedCards.set(position, cardId);
-        }
-    }
-
-    drawCards(count: number) {
-        const drawnCards: string[] = [];
-
-        if (this.drawsPerTurn < 1) {
-            for (let i = 0; i < count; i++) {
-                const card = this.drawingDeck.pop();
-                if (card) {
-                    drawnCards.push(card);
-                    this.onHand.push(card);
-                }
-            }
-        }
-
-        return drawnCards;
-    }
-
-    redrawCards(cardId?: string): string[] {
-        const newCards: string[] = [];
-
-        if (this.drawsPerTurn < 2) {
-            const cardsToChange = cardId ? [cardId] : this.onHand.slice(0, 2);
-
-            if (cardId && (this.onHand.indexOf(cardId) !== 0 || this.onHand.indexOf(cardId) !== 1)) {
-                return newCards;
-            } else {
-                cardsToChange.forEach(card => {
-                   this.onHand.splice(this.onHand.indexOf(card), 1);
-                   this.drawingDeck.unshift(card);
-                   const newCard = this.drawingDeck.pop();
-                   if (newCard) {
-                       newCards.push(newCard);
-                   }
-                });
-            }
-        } else {
-            return newCards;
-        }
-
-        this.drawsPerTurn = this.drawsPerTurn + 1;
-        return newCards;
-    }
-
-    assembleAndShuffleDeck(deckId: Deck): string[] {
-        const drawingDeck: string[] = [];
-        const cards: { id: string, count: number }[] = require("../../decks.json")[deckId];
-
-        cards.forEach(card => {
-            for (let i = 0; i < card.count; i++) {
-                drawingDeck.push(card.id);
-            }
-        });
-
-        return shuffleArray(drawingDeck);
-    }
-
-    resetBeforeTurn() {
-        this.drawsPerTurn = 0;
-        this.mana.fill(true);
-
-        if (this.timeLeft) {
-            this.timeLeft.startTurn();
-        }
-    }
-}
+const placeholder = "card";
 
 export class Battle {
 
@@ -153,47 +11,116 @@ export class Battle {
     readonly playerStates!: Map<string, PlayerState>;
 
     @prop()
-    private _turnOfPlayer: string;
+    private turnOfPlayer: string;
 
-    constructor(player2Id?: string) {
-        this._turnOfPlayer = player2Id ? player2Id : "";
+    @prop({ _id: false })
+    readonly abilities: Abilities;
+
+    @prop()
+    readonly timeLimit?: number; //milliseconds per player
+
+    @prop()
+    turn: number;
+
+    constructor(player2Id?: string, timeLimit?: number) {
+        this.turnOfPlayer = player2Id ? player2Id : "";
+        this.abilities = new Abilities(this);
+        this.timeLimit = timeLimit;
+        this.turn = 0;
     }
 
-    isTurnOfPlayer(playerId: string): boolean {
-        return this._turnOfPlayer === playerId;
+    setRefProps() {
+        for (const [key, value] of this.playerStates.entries()) {
+            value.setBattleRefAndIds(this, key);
+        }
+
+        this.abilities.setBattleRef(this);
     }
 
-    endTurn(): boolean {
-        const players = Array.from(this.playerStates.keys());
+    endTurn(playerId: string): boolean {
+        if (this.turnOfPlayer === playerId) {
+            const players = Array.from(this.playerStates.keys());
 
-        if (players.length === 2) {
-            const currentTurnPlayer = this.playerStates.get(this._turnOfPlayer);
-            players.splice(players.indexOf(this._turnOfPlayer), 1);
-            const nextTurnPlayer = this.playerStates.get(players[0]);
+            if (players.length === 2) {
+                this.abilities.clearTurnBasedAttributeModifiers();
 
-            if (currentTurnPlayer && nextTurnPlayer) {
-                this._turnOfPlayer = players[0];
-                nextTurnPlayer.resetBeforeTurn();
+                const currentTurnPlayer = this.player(this.turnOfPlayer);
+                players.splice(players.indexOf(this.turnOfPlayer), 1);
+                const nextTurnPlayer = this.playerStates.get(players[0]);
 
-                if (currentTurnPlayer.timeLeft) {
-                    currentTurnPlayer.timeLeft.endTurn();
+                if (currentTurnPlayer && nextTurnPlayer) {
+                    this.turnOfPlayer = players[0];
+                    nextTurnPlayer.resetBeforeTurn();
+                    currentTurnPlayer.deployedCards.delete(Pos.stormer);
+
+                    if (currentTurnPlayer.timeLeft) {
+                        currentTurnPlayer.timeLeft.endTurn();
+                    }
+                    return (nextTurnPlayer.timeLeft && !nextTurnPlayer.timeLeft.hasTimeLeft()) || nextTurnPlayer.drawingDeck.length < 1;
                 }
-
-                return (nextTurnPlayer.timeLeft && !nextTurnPlayer.timeLeft.hasTimeLeft()) || nextTurnPlayer.drawingDeck.length < 1;
-            } else {
-                throw new Error("The game has not started yet");
             }
-        } else
-            throw new Error("The game has not started yet");
+        }
+        return false;
+    }
+
+    startTurn(playerId: string): boolean {
+        const player = this.player(playerId);
+
+        if (player && this.turnOfPlayer === playerId) {
+            if (player.timeLeft) {
+                player.timeLeft.startTurn();
+            }
+            this.turn += 1;
+            player.nextTurnStage();
+            this.abilities.applyEventDrivenAbilities(TriggerEvent.turn, player.id);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     hasStarted(): boolean {
         return this.playerStates.size === 2;
     }
 
-    initPlayerState(playerId: string, deckId: Deck, timeLeft?: number) {
+    initPlayerState(playerId: string, deckId: Deck) {
         if (this.playerStates.size < 2) {
-            this.playerStates.set(playerId, new PlayerState(deckId, timeLeft));
+            this.playerStates.set(playerId, new PlayerState(this, playerId, this.getOpponentId(playerId), deckId, this.timeLimit));
         }
+    }
+
+    setTurnOfPlayer(playerId: string) {
+        this.turnOfPlayer = playerId;
+    }
+
+    hideDrawingDeckCards() {
+        this.playerStates.forEach(player => player.drawingDeck.fill(placeholder));
+    }
+
+    hideOnHandCards(playerId: string) {
+        const player = this.player(playerId);
+        if (player) {
+            player.onHand.fill(placeholder);
+        }
+    }
+
+    isTurnOfPlayer(playerId: string) {
+        return this.turnOfPlayer === playerId;
+    }
+
+    player(playerId: string) {
+        return this.playerStates.get(playerId);
+    }
+
+    opponent(playerId: string) {
+        const playerIds = Array.from(this.playerStates.keys());
+        playerIds.splice(playerIds.indexOf(playerId), 1);
+        return this.playerStates.get(playerIds[0]);
+    }
+
+    getOpponentId(playerId: string) {
+        const playerIds = Array.from(this.playerStates.keys());
+        playerIds.splice(playerIds.indexOf(playerId), 1);
+        return playerIds[0];
     }
 }

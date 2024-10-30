@@ -2,6 +2,7 @@ import {Request, Response} from "express";
 import {getUserId, handleServerError} from "../middleware";
 import {FriendService} from "../services/FriendService";
 import NotificationService from "../services/NotificationService";
+import notificationService from "../services/NotificationService";
 
 export class FriendController {
 
@@ -13,12 +14,20 @@ export class FriendController {
         this.notificationService = notificationService;
     }
 
-    getOnlineFriends = async(req: Request, res: Response)=> {
+    getOnlineFriends = async (req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
             const onlineFriends = await this.friendService.getOnlineFriends(userId);
 
             if (onlineFriends && onlineFriends.length > 0) {
+
+                let notBusyFriends: string[] = [];
+                onlineFriends.forEach(friend => {
+                   if (!friend.busy) {
+                       notBusyFriends.push(friend.userId);
+                   }
+                });
+                await this.notificationService.notifyFriendsAtConnection(userId, notBusyFriends);
                 res.status(200).json({ onlineFriends: onlineFriends });
             } else {
                 res.status(204).json({ message: "No online friends were found" });

@@ -1,14 +1,14 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
-import "./Mongo";
 import router from "./routes";
 import { auth } from "express-oauth2-jwt-bearer";
 import {Server} from "socket.io";
 import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
 import BattleSocketController from "./controllers/BattleSocketController";
-import {BattleService} from "./services/BattleService";
+import Mongo from "./Mongo";
+import {Pos} from "./models/PlayerState";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
@@ -40,23 +40,12 @@ io.on("connection", (socket: any) => {
     socket.on("disconnect", async () => {
         await pubRedisClient.del(userId);
     });
-
-
-    new BattleSocketController(io, new BattleService()).setUp();
 });
-
-export const sendChatMessage = async (senderId: string, receiverId: string, text: string, receiverSocketId: string) => {
-    io.to(receiverSocketId).emit(
-        "chat-message",
-        {
-            from: senderId,
-            text: text
-        }
-    );
-}
 
 export {io}
 
 server.listen(port, () => {
+    new Mongo();
+    new BattleSocketController(io);
     console.log("The server is LIVE");
 });

@@ -2,7 +2,7 @@ import {ChatService} from "../services/ChatService";
 import {Request, Response} from "express";
 import {getUserId, handleServerError} from "../middleware";
 import {busyStatusIndicator, pubRedisClient} from "../redis";
-import {sendChatMessage} from "../server";
+import NotificationService from "../services/NotificationService";
 
 interface OutgoingMessage {
     to: string;
@@ -12,9 +12,11 @@ interface OutgoingMessage {
 export class ChatController {
 
     private chatService: ChatService;
+    private notificationService: NotificationService;
 
-    constructor(chatService: ChatService) {
+    constructor(chatService: ChatService, notificationService: NotificationService) {
         this.chatService = chatService;
+        this.notificationService = notificationService;
     }
 
     send = async (req: Request, res: Response) =>{
@@ -38,7 +40,7 @@ export class ChatController {
                 if (save) {
                     res.status(200).json({ message: "The message was successfully sent" });
                     if (isReceiverAvailable) {
-                        await sendChatMessage(message.to, senderId, message.text, receiverSocketId);
+                        await this.notificationService.sendChatMessage(message.to, senderId, message.text, receiverSocketId);
                     }
                 } else {
                     res.status(409).json({ message: "Messages can only be sent to friends" });

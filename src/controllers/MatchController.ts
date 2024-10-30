@@ -119,7 +119,7 @@ export class MatchController {
         }
     }
 
-    async setPenalty(userId: string) {
+    private async setPenalty(userId: string) {
         try {
             const update = await UserModel.updateOne(
                 {userId},
@@ -133,7 +133,7 @@ export class MatchController {
         }
     }
 
-    async hasPenalty(userId: string) {
+    private async hasPenalty(userId: string) {
         try {
             const user = await UserModel.findOne({userId}, "penaltyCreatedAt").lean();
             const timeout = require("../../game-rules.json").penaltyTimeout * 1000 * 60;

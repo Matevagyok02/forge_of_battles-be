@@ -1,12 +1,7 @@
 import {getModelForClass, modelOptions, prop} from "@typegoose/typegoose";
 import {Battle} from "./Battle";
 
-@modelOptions({
-    schemaOptions: {
-        timestamps: true
-    }
-})
-
+@modelOptions({ schemaOptions: { timestamps: true } })
 export class Match {
 
     @prop({unique: true})
@@ -25,12 +20,10 @@ export class Match {
     private player2Id!: string;
 
     @prop()
-    readonly timeLimit?: number; //milliseconds per player
-
-    @prop()
     readonly started!: boolean;
 
     setPlayer2Id(player2Id: string) {
+        this.battle.setTurnOfPlayer(player2Id);
         this.player2Id = player2Id;
     }
 
@@ -39,12 +32,11 @@ export class Match {
     }
 
     constructor(key: string, randomMatch: boolean, player1Id: string, player2Id?: string, timeLimitPerPLayer?: number) {
-        this.battle = new Battle(player2Id);
+        this.battle = new Battle(player2Id, timeLimitPerPLayer);
         this.key = key;
         this.player1Id = player1Id;
         this.player2Id = player2Id ? player2Id : "";
         this.randomMatch = randomMatch;
-        this.timeLimit = timeLimitPerPLayer;
         this.started = false;
     }
 
@@ -55,4 +47,8 @@ export const MatchModel = getModelForClass(
     {schemaOptions: {collection: 'matches'}}
 );
 
-
+MatchModel.schema.post("findOne", (match: Match) => {
+    if (match && match.battle.hasStarted()) {
+        match.battle.setRefProps();
+    }
+});
