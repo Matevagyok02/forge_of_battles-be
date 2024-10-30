@@ -1,4 +1,4 @@
-import {BattleService} from "../services/BattleService";
+import {BattleService, RawRequirementArgs} from "../services/BattleService";
 import {Server, Namespace, Socket} from "socket.io";
 import {busyStatusIndicator, pubRedisClient} from "../redis";
 import {Deck} from "../models/Card";
@@ -15,15 +15,16 @@ class BattleSocketController {
 
     constructor(io: Server) {
         this.nsp = io.of("/battle");
+        this.setUp();
     }
 
-    setUp = () => {
+    private setUp = () => {
         const nsp: Namespace = this.nsp;
 
         nsp.on("connection", async (socket: Socket) => {
             const userId = socket.handshake.auth.userId;
             const key = socket.handshake.query.key as string;
-            const opponentId = "x" //await BattleService.getOpponentId(userId, key);
+            const opponentId = await BattleService.getOpponentId(userId, key);
 
             if (!opponentId) {
                 nsp.to(socket.id).emit(
@@ -53,30 +54,75 @@ class BattleSocketController {
 
                 socket.on("end-turn", async () => await this.endTurn());
 
-                socket.on("draw", async () => await this.drawCards());
-
                 //advanced game events
+
+                socket.on("draw", async () => await this.drawCards());
 
                 socket.on("redraw", async (data: { cardId: string }) => await this.redrawCards(data));
 
-                socket.on("deploy", async (data: { cardId: string, sacrificeCards?: string[]}) => await this.deployCard(data))
+                socket.on("advance", async () => await this.advanceCards());
+
+                socket.on("deploy", async (data: { cardId: string, sacrificeCards?: string[]}) => await this.deploy(data));
+
+                socket.on("storm", async (data: { posToAttack?: string, args?: RawRequirementArgs }) => await this.storm(data));
+
+                socket.on("use-action", async (data: { cardId: string, args?: RawRequirementArgs })=> this.useAction(data));
+
+                socket.on("use-passive", async (data: { pos: string, args?: RawRequirementArgs })=> this.usePassive(data));
 
                 socket.on("add-mana", async () => await this.addStormerToMana());
 
                 socket.on("move-to-front", async () => await this.moveToFrontLine());
 
-                socket.on("activate-effect", async (data: { position: string, sacrificeCards: string[], target?: string }) => await this.activateEffect(data));
+                socket.on("discard", async (data: { cardToDiscard: string[] | string }) => await this.discard(data));
             }
         });
     }
 
     //basic game operations
 
-    private async deployCard(data: { cardId: string, sacrificeCards?: string[], position?: string}) {
-        const battle = await this.battleService.deployCard(data.cardId, data.sacrificeCards, data.position);
+    private async useAction(data: { cardId: string, args?: RawRequirementArgs }) {
+        const object = await this.battleService.useAction(data.cardId, data.args);
+        const battle = object?.battle;
+
+        if (battle) {
+            if (object?.discardForced) {
+                this.emitToSelf("opponent-forced-to-discard", { battle: battle });
+                await this.emitToOpponent("forced-to-discard", { battle: battle });
+            } else {
+                this.emitToSelf("used-action", { battle: battle });
+                await this.emitToOpponent("opponent-used-action", { battle: battle });
+            }
+        } else {
+            this.emitErrorMessage();
+        }
+    }
+
+    private async usePassive(data: { pos: string, args?: RawRequirementArgs }) {
+        const battle = await this.battleService.usePassive(data.pos, data.args);
+        if (battle) {
+            this.emitToSelf("used-passive", { battle: battle });
+            await this.emitToOpponent("opponent-used-passive", { battle: battle });
+        } else {
+            this.emitErrorMessage();
+        }
+    }
+
+    private async deploy(data: { cardId: string, useAsMana?: string[] }) {
+        const battle = await this.battleService.deploy(data.cardId, data.useAsMana);
         if (battle) {
             this.emitToSelf("deployed", { battle: battle });
             await this.emitToOpponent("opponent-deployed", { battle: battle });
+        } else {
+            this.emitErrorMessage();
+        }
+    }
+
+    private async storm(data: { posToAttack?: string, args?: RawRequirementArgs }) {
+        const battle = await this.battleService.storm(data.posToAttack, data.args);
+        if (battle) {
+            this.emitToSelf("stormed", { battle: battle });
+            await this.emitToOpponent("opponent-stormed", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -87,6 +133,27 @@ class BattleSocketController {
         if (drawnCards) {
             this.emitToSelf("redrawn", {drawnCards: drawnCards });
             await this.emitToOpponent("opponent-redrawn", {drawnCards: drawnCards.length });
+        } else {
+            this.emitErrorMessage();
+        }
+    }
+
+    private async discard(data: { cardToDiscard: string[] | string }){
+        const battle = await this.battleService.discard(data.cardToDiscard);
+
+        if (battle) {
+            await this.emitToOpponent("opponent-discarded", { battle: battle });
+            this.emitToSelf("discarded", { battle: battle });
+        } else {
+            this.emitErrorMessage();
+        }
+    }
+
+    private async advanceCards() {
+        const drawnCards = await this.battleService.advanceCards();
+        if (drawnCards) {
+            this.emitToSelf("advanced", {});
+            await this.emitToOpponent("opponent-advanced", {});
         } else {
             this.emitErrorMessage();
         }
@@ -103,20 +170,10 @@ class BattleSocketController {
     }
 
     private async moveToFrontLine() {
-        const move = await this.battleService.addStormerToMana();
+        const move = await this.battleService.moveToFrontLine();
         if (move) {
             this.emitToSelf("moved-to-front", {});
             await this.emitToOpponent("opponent-moved-to-front", {});
-        } else {
-            this.emitErrorMessage();
-        }
-    }
-
-    private async activateEffect(data: { position: string, sacrificeCards: string[], target?: string }) {
-        const battle = await this.battleService.activatePassiveEffect(data.position, data.sacrificeCards, data.target);
-        if (battle) {
-            this.emitToSelf("activated-effect", { battle: battle });
-            await this.emitToOpponent("opponent-activated-effect", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -194,6 +251,8 @@ class BattleSocketController {
 
             if (!room[this.opponentId]) {
                 this.emitToSelf("opponent-offline", { message: "Your opponent is offline" });
+            } else {
+                await this.emitToOpponent("opponent-reconnected", { message: "Your opponent has reconnected" })
             }
         }
 

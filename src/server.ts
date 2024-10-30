@@ -1,13 +1,14 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
-import "./Mongo";
 import router from "./routes";
 import { auth } from "express-oauth2-jwt-bearer";
 import {Server} from "socket.io";
 import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
 import BattleSocketController from "./controllers/BattleSocketController";
+import Mongo from "./Mongo";
+import {Pos} from "./models/PlayerState";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
@@ -44,6 +45,7 @@ io.on("connection", (socket: any) => {
 export {io}
 
 server.listen(port, () => {
-    new BattleSocketController(io).setUp();
+    new Mongo();
+    new BattleSocketController(io);
     console.log("The server is LIVE");
 });

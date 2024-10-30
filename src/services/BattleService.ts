@@ -1,6 +1,8 @@
-import {MatchModel} from "../models/Match";
+import {Match, MatchModel} from "../models/Match";
 import {Card, CardModel, Deck} from "../models/Card";
-import {Battle, Pos} from "../models/Battle";
+import {Battle} from "../models/Battle";
+import {Pos} from "../models/PlayerState";
+import {RequirementArgs} from "../models/Abilities";
 
 export class BattleService {
 
@@ -25,7 +27,7 @@ export class BattleService {
             const match = await MatchModel.findOne(this.filter).exec();
 
             if (match) {
-                match.battle.initPlayerState(this.playerId, deck, match.timeLimit);
+                match.battle.initPlayerState(this.playerId, deck);
                 await match.save();
                 if (match.battle.hasStarted()) {
                     return {battle: match.battle, arePlayersReady: true};
@@ -62,7 +64,6 @@ export class BattleService {
             const match = await MatchModel.findOne(this.filter).exec();
 
             if (match && match.battle.endTurn(this.playerId)) {
-                match.battle.removeTurnBasedAttributeModifiers(this.playerId);
                 await match.save();
                 return match.battle;
             } else {
@@ -78,10 +79,60 @@ export class BattleService {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match) {
-                const addToMana = match.battle.addToMana(this.playerId);
+            if (match && this.isPlayerOnTurn(match)) {
+                const player = match.battle.player(this.playerId);
 
-                if (addToMana) {
+                if (player) {
+                    const addToMana = player.addToMana();
+
+                    if (addToMana) {
+                        await match.save();
+                        return match.battle;
+                    }
+                }
+            }
+            return null;
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+
+    deploy = async (cardId: string, useAsMana?: string[]) => {
+        try {
+            const match = await MatchModel.findOne(this.filter).exec();
+
+            if (match && this.isPlayerOnTurn(match)) {
+                const card = await BattleService.getCardById(cardId);
+
+                if (card) {
+                    const player = match.battle.player(this.playerId);
+                    if (player) {
+                        const deploy = player.deploy(card, useAsMana);
+
+                        if (deploy) {
+                            await match.save();
+                            return match.battle;
+                        }
+                    }
+                }
+            }
+            return null;
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+
+    discard = async (cardToDiscard: string[] | string)=> {
+        try {
+            const match = await MatchModel.findOne(this.filter).exec();
+
+            if (match) {
+                const discard = await match.battle.player(this.playerId)?.discard(
+                        Array.isArray(cardToDiscard) ? cardToDiscard : Pos[cardToDiscard as keyof typeof Pos]
+                    );
+                if (discard) {
                     await match.save();
                     return match.battle;
                 }
@@ -93,20 +144,103 @@ export class BattleService {
         }
     }
 
-    deployCard = async (cardId: string, sacrificeCards?: string[], position?: string) => {
+    storm = async (posToAttack?: string | Pos, rawArgs?: RawRequirementArgs) => {
+        try {
+            const match = await MatchModel.findOne(this.filter).exec();
+            const args = this.formatRequirementArgs(rawArgs);
+
+            if (match && this.isPlayerOnTurn(match)) {
+                const player = match.battle.player(this.playerId);
+                if (player) {
+                    let storm;
+
+                    const position = Pos[posToAttack as keyof typeof Pos];
+                    if (position === Pos.frontLiner || position === Pos.vanguard) {
+                        storm = player.storm(args, position);
+                    } else {
+                        storm = player.storm(args);
+                    }
+
+                    if (storm) {
+                        await match.save();
+                        return match.battle;
+                    }
+                }
+            }
+            return null;
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+
+    useAction = async (cardId: string, args?: RawRequirementArgs) => {
+        try {
+            const match = await MatchModel.findOne(this.filter).exec();
+            const card = await BattleService.getCardById(cardId);
+
+            if (match && card && this.isPlayerOnTurn(match)) {
+                const player = match.battle.player(this.playerId);
+
+                if (card.actionAbility!.requirements) {
+                    card.actionAbility!.requirements!.mana = card.cost;
+                } else {
+                    card.actionAbility!.requirements = {};
+                    card.actionAbility!.requirements.mana = card.cost;
+                }
+
+                if (player) {
+                    const useAction = player.useAction(card, this.formatRequirementArgs(args))
+
+                    if (useAction) {
+                        await match.save();
+                        return {
+                            battle: match.battle,
+                            discardForced: !!match.battle.abilities.discardRequirement
+                        };
+                    }
+                }
+            }
+            return null;
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+
+    usePassive = async (pos: string, args?: RawRequirementArgs) => {
+        try {
+            const position: Pos| undefined = Pos[pos as keyof typeof Pos];
+            const match = await MatchModel.findOne(this.filter).exec();
+
+            if (match && position && this.isPlayerOnTurn(match)) {
+                const player = match.battle.player(this.playerId);
+                if (player) {
+                    const useAction = player.usePassive(position, this.formatRequirementArgs(args))
+
+                    if (useAction) {
+                        await match.save();
+                        return match.battle;
+                    }
+                }
+            }
+            return null;
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+
+    advanceCards = async () => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match) {
-                const card = await this.getCardById(cardId);
+            if (match && this.isPlayerOnTurn(match)) {
+                const player = match.battle.player(this.playerId);
+                if (player) {
+                    const advance = player.advanceCards();
 
-                if (card && (!position || (<any>Object).values(Pos).includes(position))) {
-                    const deploy = match.battle.deployCard(
-                        this.playerId,
-                        { card: card, sacrificeCards: sacrificeCards, position: Pos[position as keyof typeof Pos] }
-                    );
-
-                    if (deploy) {
+                    if (advance) {
                         await match.save();
                         return match.battle;
                     }
@@ -138,8 +272,8 @@ export class BattleService {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match && match.battle) {
-                const drawnCards = match.battle.player(this.playerId)?.drawCards(2);
+            if (match && this.isPlayerOnTurn(match)) {
+                const drawnCards = match.battle.player(this.playerId)?.drawCards();
                 await match.save();
                 return drawnCards;
             }
@@ -154,34 +288,10 @@ export class BattleService {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match && match.battle) {
+            if (match && this.isPlayerOnTurn(match)) {
                 const drawnCards = match.battle.player(this.playerId)?.redrawCards(cardId);
                 await match.save();
                 return drawnCards;
-            }
-            return null;
-        } catch (e: any) {
-            console.log(e);
-            return null;
-        }
-    }
-
-    activatePassiveEffect = async (position: string, sacrificeCards?: string[], target?: string) => {
-        try {
-            const match = await MatchModel.findOne(this.filter).exec();
-
-            if (match) {
-                const activate = match.battle.activatePassiveEffect(
-                    this.playerId,
-                    Pos[position as keyof typeof Pos],
-                    sacrificeCards,
-                    Pos[target as keyof typeof Pos]
-                );
-
-                if (activate) {
-                    await match.save();
-                    return match.battle;
-                }
             }
             return null;
         } catch (e: any) {
@@ -194,12 +304,16 @@ export class BattleService {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match) {
-                const move = match.battle.player(this.playerId)?.moveToFrontLine();
+            if (match && this.isPlayerOnTurn(match)) {
+                const player = match.battle.player(this.playerId);
 
-                if (move) {
-                    await match.save();
-                    return match.battle;
+                if (player) {
+                    const move = player.moveToFrontLine();
+
+                    if (move) {
+                        await match.save();
+                        return match.battle;
+                    }
                 }
             }
             return null;
@@ -209,30 +323,54 @@ export class BattleService {
         }
     }
 
-    private getCardById = async (id: string): Promise<Card | null> => {
+    private formatRequirementArgs = (rawArgs: RawRequirementArgs | undefined): RequirementArgs | undefined => {
+        if (!rawArgs) {
+            return undefined;
+        }
+
         try {
-            const card = await CardModel.findOne({id: id}).exec();
-            if (card)
-                return card;
-            else
-                return null;
+            if (rawArgs.cardToSacrifice) {
+                rawArgs.cardToSacrifice = Pos[rawArgs.cardToSacrifice as keyof typeof Pos];
+            }
+
+            if (rawArgs.targetPositions?.self) {
+                let selfTargets: Pos[] = [];
+                rawArgs.targetPositions.self.forEach(t => {
+                    const target: Pos = Pos[t as keyof typeof Pos];
+                    if (target) {
+                        selfTargets.push(target);
+                    }
+                });
+
+                rawArgs.targetPositions.self = selfTargets;
+            }
+
+            if (rawArgs.targetPositions?.opponent) {
+                let opponentTargets: Pos[] = [];
+                rawArgs.targetPositions.opponent.forEach(t => {
+                    const target: Pos = Pos[t as keyof typeof Pos];
+                    if (target) {
+                        opponentTargets.push(target);
+                    }
+                });
+
+                rawArgs.targetPositions.opponent = opponentTargets;
+            }
+
+            if (rawArgs.nestedArgs) {
+                rawArgs.nestedArgs = this.formatRequirementArgs(rawArgs.nestedArgs);
+            }
+
+            return rawArgs as RequirementArgs;
         } catch (e: any) {
             console.log(e);
-            return null;
+            return undefined;
         }
     }
 
-    private getCardsById = async (idList: string[]):Promise<Card[] | null> => {
-        try {
-            const cards = await CardModel.find({ id: { $in: idList } }).exec();
-            if (cards)
-                return cards;
-            else
-                return null;
-        } catch (e: any) {
-            console.log(e);
-            return null;
-        }
+    private isPlayerOnTurn(matchDocument: any) {
+        const match = matchDocument as Match;
+        return  match.battle.isTurnOfPlayer(this.playerId)
     }
 
     static getOpponentId = async (userId: string, key: string)=> {
@@ -262,4 +400,28 @@ export class BattleService {
             return null;
         }
     }
+
+    static getCardById = async (id: string): Promise<Card | null> => {
+        try {
+            const card = await CardModel.findOne({id: id}).exec();
+            if (card)
+                return card;
+            else
+                return null;
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+}
+
+export interface RawRequirementArgs {
+    cardToSacrifice?: Pos | string;
+    useAsMana?: string[];
+    targetPositions?: {
+        self: Pos[] | string[],
+        opponent: Pos[] | string[]
+    },
+    targetCards?: string[];
+    nestedArgs?: RawRequirementArgs | RequirementArgs;
 }

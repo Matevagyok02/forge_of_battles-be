@@ -60,6 +60,16 @@ class NotificationService {
             }
         );
     }
+
+    notifyFriendsAtConnection = async (userId: string, friends: string[]) => {
+        const friendSockets = await pubRedisClient.mget(friends);
+
+        friendSockets.forEach(socket => {
+            if (socket) {
+                io.to(socket).emit("friend-connected", { friend: userId});
+            }
+        })
+    }
 }
 
 export default NotificationService;

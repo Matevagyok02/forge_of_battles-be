@@ -1,6 +1,5 @@
-import {Ability} from "./Ability";
 import {getModelForClass, modelOptions, prop, Severity} from "@typegoose/typegoose";
-import {Effect} from "./Effect";
+import {Ability} from "./Abilities";
 
 @modelOptions({ options: { allowMixed: Severity.ALLOW } })
 export class Card {
@@ -24,10 +23,10 @@ export class Card {
     cost!: number;
 
     @prop({ _id: false })
-    readonly passiveEffect!: Effect ;
+    readonly passiveAbility!: Ability ;
 
     @prop({ _id: false })
-    readonly actionAbility!: Ability;
+    actionAbility?: Ability;
 }
 
 export const CardModel = getModelForClass(
@@ -36,6 +35,6 @@ export const CardModel = getModelForClass(
 );
 
 export enum Deck {
-    LIGHT = "light",
-    SHADOW = "shadow"
+    light = "light",
+    shadow = "shadow"
 }
