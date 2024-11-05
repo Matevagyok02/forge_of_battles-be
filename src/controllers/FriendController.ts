@@ -44,15 +44,15 @@ export class FriendController {
 
             if (typeof toId === "string") {
                 if (toId === fromId) {
-                    res.status(409).json({message: "You cannot send a friend request to yourself :( "});
+                    res.status(409).json({message: "You cannot send an invite to yourself :( "});
                 } else {
                     const requestSender = await this.friendService.sendFriendRequest(fromId, toId);
 
                     if (requestSender) {
-                        res.status(201).json({message: "The request was successfully sent" });
+                        res.status(201).json({message: "The invite was successfully sent" });
                         await this.notificationService.sendFriendRequest(toId, requestSender);
                     } else
-                        res.status(409).json({message: "The user you want to invite is already your friend or a friend request has been issued between you" });
+                        res.status(409).json({message: "The user you want to invite is already your friend or an invite has been issued between you" });
                 }
             } else
                 res.status(400).json({ message: "'to' param is missing"});

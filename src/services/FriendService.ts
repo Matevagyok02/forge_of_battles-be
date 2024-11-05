@@ -106,13 +106,16 @@ export class FriendService {
             const friendIdList = await UserModel.findOne({userId}, 'friends').lean();
             const friends = friendIdList?.friends;
 
-            const activeValues = await pubRedisClient.mget(friends as string[]);
-            friends?.forEach((friend: string, index: number) => {
-                if (activeValues[index] !== undefined) {
-                    const busy = activeValues[index] === busyStatusIndicator;
-                    activeFriends.push({userId: friend, busy: busy});
-                }
-            });
+            if (friends) {
+                const activeValues = await pubRedisClient.mget(friends);
+                console.log(activeValues);
+                friends?.forEach((friend: string, index: number) => {
+                    if (activeValues[index] !== null) {
+                        const busy = activeValues[index] === busyStatusIndicator;
+                        activeFriends.push({userId: friend, busy: busy});
+                    }
+                });
+            }
 
             return activeFriends;
         } catch (error: any) {
