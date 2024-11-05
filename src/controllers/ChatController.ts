@@ -79,8 +79,6 @@ export class ChatController {
             const userId = getUserId(req);
             const unseenMessages = await this.chatService.getUnseenMessages(userId);
 
-            console.log(unseenMessages);
-
             if (unseenMessages && unseenMessages.length > 0)
                 res.status(200).json(unseenMessages);
             else

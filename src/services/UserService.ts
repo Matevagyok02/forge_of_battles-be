@@ -2,7 +2,7 @@ import {User, UserModel} from "../models/User";
 import {isUpdateSuccessful} from "../utils";
 import {DuplicateOptionsError} from "@typegoose/typegoose/lib/internal/errors";
 
-const basicParams = "userId username profilePicture";
+const basicParams = "userId username picture";
 
 export class UserService {
 
