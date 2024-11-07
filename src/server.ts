@@ -43,8 +43,6 @@ io.on("connection", (socket: any) => {
 
 export {io}
 
-require("./swagger");
-
 server.listen(port, () => {
     new Mongo();
     new BattleSocketController(io);
