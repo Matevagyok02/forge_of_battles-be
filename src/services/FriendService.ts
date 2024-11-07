@@ -15,18 +15,25 @@ export class FriendService {
 
                 if (fromUser && toUser) {
                     if (fromUser.hasRequestOrIsFriend(toId) || toUser.hasRequestOrIsFriend(fromId)) {
-                        console.log(1);
                         return false;
                     } else {
-                        fromUser.addOutgoingRequest(toId);
-                        toUser.addIncomingRequest(fromId);
+                        fromUser.addOutgoingRequest({
+                            userId: toUser.userId,
+                            username: toUser.username,
+                            picture: toUser.picture
+                        });
+                        toUser.addIncomingRequest({
+                            userId: fromUser.userId,
+                            username: fromUser.username,
+                            picture: fromUser.picture
+                        });
 
                         const save =
                             await fromUser.save() &&
                             await toUser.save()
                         ;
                         if (!!save) {
-                            return users.find(user => user.userId === fromId);
+                            return {userId: fromId, username: fromUser.username, picture: fromUser.picture};
                         }
                     }
                 } else
@@ -108,7 +115,6 @@ export class FriendService {
 
             if (friends) {
                 const activeValues = await pubRedisClient.mget(friends);
-                console.log(activeValues);
                 friends?.forEach((friend: string, index: number) => {
                     if (activeValues[index] !== null) {
                         const busy = activeValues[index] === busyStatusIndicator;

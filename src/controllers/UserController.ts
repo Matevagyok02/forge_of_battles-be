@@ -16,8 +16,13 @@ export class UserController {
             const newPicture = req.query.id;
 
             if (typeof newPicture === "string") {
-                await this.userService.changeProfilePicture(userId, newPicture);
-                res.status(200).json({ message: "Profile picture was changed successfully" });
+                const update = await this.userService.changeProfilePicture(userId, newPicture);
+
+                if (update) {
+                    res.status(200).json({ message: "Profile picture was changed successfully" });
+                } else {
+                    res.status(409).json({ message: "The update has failed" });
+                }
             } else {
                 res.status(400).json({ message: "'id' param is missing" });
             }
@@ -65,19 +70,20 @@ export class UserController {
         }
     }
 
-    registerNewUser = async(req: Request, res: Response)=> {
+    registerNewUser = async(req: Request, res: Response)=>
+    {
         try {
             const userId = getUserId(req);
             const user: {
                 username: string;
-                profilePicture?: string;
+                picture?: string;
             } = await req.body;
 
             if (user.username && userId) {
                 const usernameTaken = await this.userService.usernameInUse(user.username)
 
                 if (!usernameTaken) {
-                    const userInsert = await this.userService.insertNewUser(userId, user.username, user.profilePicture);
+                    const userInsert = await this.userService.insertNewUser(userId, user.username, user.picture);
                     if (userInsert) {
                         res.status(201).json({ message: "User successfully registered" });
                     } else {

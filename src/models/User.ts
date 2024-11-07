@@ -9,9 +9,13 @@ class FriendRequest {
     readonly toId!: string;
 
     @prop()
+    readonly userProps!: { username: string, picture?: string };
+
+    @prop()
     readonly createdAt!: Date;
 
-    constructor(fromId: string, toId: string) {
+    constructor(fromId: string, toId: string, userProps: { username: string, picture?: string }) {
+        this.userProps = userProps;
         this.fromId = fromId;
         this.toId = toId;
         this.createdAt = new Date();
@@ -76,12 +80,18 @@ export class User{
         }
     }
 
-    addIncomingRequest(fromId: string) {
-        this.requests?.push(new FriendRequest(fromId, this.userId));
+    addIncomingRequest(fromUser: {userId: string, username: string, picture?: string}) {
+        this.requests?.push(new FriendRequest(
+            fromUser.userId,
+            this.userId,
+            { username: fromUser.username, picture: fromUser.picture}));
     }
 
-    addOutgoingRequest(toId: string) {
-        this.requests?.push(new FriendRequest(this.userId, toId));
+    addOutgoingRequest(toUser: {userId: string, username: string, picture?: string}) {
+        this.requests?.push(new FriendRequest(
+            this.userId,
+            toUser.userId,
+            { username: toUser.username, picture: toUser.picture}));
     }
 
     acceptRequest(fromId: string): boolean {

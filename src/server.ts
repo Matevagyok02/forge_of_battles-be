@@ -8,7 +8,6 @@ import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
 import BattleSocketController from "./controllers/BattleSocketController";
 import Mongo from "./Mongo";
-import {Pos} from "./models/PlayerState";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
@@ -43,6 +42,8 @@ io.on("connection", (socket: any) => {
 });
 
 export {io}
+
+require("./swagger");
 
 server.listen(port, () => {
     new Mongo();
