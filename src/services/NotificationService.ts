@@ -9,7 +9,7 @@ class NotificationService {
         return isAvailable ? socketId : null;
     }
 
-    sendFriendRequest = async (receiverId: string, sender: any) => {
+    sendFriendRequest = async (receiverId: string, sender: object) => {
         const socket = await this.getSocketIfAvailable(receiverId);
         if (socket) {
             io.to(socket).emit("friend-request", sender);

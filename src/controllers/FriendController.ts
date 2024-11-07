@@ -2,7 +2,6 @@ import {Request, Response} from "express";
 import {getUserId, handleServerError} from "../middleware";
 import {FriendService} from "../services/FriendService";
 import NotificationService from "../services/NotificationService";
-import notificationService from "../services/NotificationService";
 
 export class FriendController {
 
@@ -44,7 +43,7 @@ export class FriendController {
 
             if (typeof toId === "string") {
                 if (toId === fromId) {
-                    res.status(409).json({message: "You cannot send an invite to yourself :( "});
+                    res.status(409).json({message: "You cannot send an invite to yourself :("});
                 } else {
                     const requestSender = await this.friendService.sendFriendRequest(fromId, toId);
 
