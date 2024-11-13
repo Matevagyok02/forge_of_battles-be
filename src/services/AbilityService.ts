@@ -250,7 +250,7 @@ export class AbilityService {
                 nextStormer.passiveAbility.usageType === AbilityUsageType.basic
                 || nextStormer.passiveAbility.usageType === AbilityUsageType.eventDriven
             ) {
-                player.battle.abilities.addAbility(player.id, nextStormer.passiveAbility);
+                player.battle!.abilities.addAbility(player.id, nextStormer.passiveAbility);
             }
         }
     }

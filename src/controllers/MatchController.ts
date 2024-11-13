@@ -3,7 +3,6 @@ import {getUserId, handleServerError} from "../middleware";
 import {UserService} from "../services/UserService";
 import {MatchService} from "../services/MatchService";
 import {UserModel} from "../models/User";
-import {isUpdateSuccessful} from "../utils";
 import {busyStatusIndicator, pubRedisClient} from "../redis";
 import NotificationService from "../services/NotificationService";
 
@@ -53,6 +52,8 @@ export class MatchController {
             const match = await this.matchService.create(creatorId, invitedPlayerId, timeLimit);
 
             if (match) {
+                match.battle.clearRefs();
+
                 if (invitedPlayerId) {
                     await this.notificationService.sendMatchInvite(invitedPlayerId, match);
                 }
@@ -70,10 +71,12 @@ export class MatchController {
             const userId = getUserId(req);
             const matches = await this.matchService.getActiveMatchesByUser(userId as string);
 
-            if (matches && matches.length > 0)
+            if (matches && matches.length > 0) {
+                matches.forEach(match => match.battle.clearRefs());
                 res.status(200).json(matches);
-            else
-                res.status(404).json({ message: "No active match was found" });
+            } else {
+                res.status(404).json({message: "No active match was found"});
+            }
         } catch (e: any) {
             handleServerError(e, res);
         }
@@ -119,19 +122,19 @@ export class MatchController {
         }
     }
 
-    private async setPenalty(userId: string) {
-        try {
-            const update = await UserModel.updateOne(
-                {userId},
-                {penaltyCreatedAt: new Date()}
-            ).lean();
-
-            return isUpdateSuccessful(update);
-        } catch (error: any) {
-            console.error(error);
-            return false;
-        }
-    }
+    // private async setPenalty(userId: string) {
+    //     try {
+    //         const update = await UserModel.updateOne(
+    //             {userId},
+    //             {penaltyCreatedAt: new Date()}
+    //         ).lean();
+    //
+    //         return isUpdateSuccessful(update);
+    //     } catch (error: any) {
+    //         console.error(error);
+    //         return false;
+    //     }
+    // }
 
     private async hasPenalty(userId: string) {
         try {

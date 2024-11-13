@@ -270,8 +270,9 @@ class BattleSocketController {
 
     private emitToSelf(ev: string, data: any) {
         if (data.battle && data.battle instanceof Battle) {
-            data.battle.hideOnHandCards(this.opponentId);
-            data.battle.hideDrawingDeckCards();
+            (data.battle as Battle).clearRefs();
+            (data.battle as Battle).hideOnHandCards(this.opponentId);
+            (data.battle as Battle).hideDrawingDeckCards();
         }
 
         this.nsp.to(this.userSocket).emit(ev, data);
@@ -280,8 +281,9 @@ class BattleSocketController {
     private async emitToOpponent(ev: string, data: any) {
         const opponentSocketId = await pubRedisClient.hget(this.key, this.opponentId);
         if (data.battle && data.battle instanceof Battle) {
-            data.battle.hideOnHandCards(this.userId);
-            data.battle.hideDrawingDeckCards();
+            (data.battle as Battle).clearRefs();
+            (data.battle as Battle).hideOnHandCards(this.userId);
+            (data.battle as Battle).hideDrawingDeckCards();
         }
 
         if (opponentSocketId) {

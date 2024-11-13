@@ -8,6 +8,9 @@ import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
 import BattleSocketController from "./controllers/BattleSocketController";
 import Mongo from "./Mongo";
+import NotificationService from "./services/NotificationService";
+import {FriendController} from "./controllers/FriendController";
+import {FriendService} from "./services/FriendService";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
@@ -38,6 +41,10 @@ io.on("connection", (socket: any) => {
 
     socket.on("disconnect", async () => {
         await pubRedisClient.del(userId);
+        await new FriendController(
+            new FriendService(),
+            new NotificationService()
+        ).notifyFriendsAtDisconnection(userId);
     });
 });
 

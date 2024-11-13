@@ -40,7 +40,7 @@ export class ChatController {
                 if (save) {
                     res.status(200).json({ message: "The message was successfully sent" });
                     if (isReceiverAvailable) {
-                        await this.notificationService.sendChatMessage(message.to, senderId, message.text, receiverSocketId);
+                        await this.notificationService.sendChatMessage(senderId, message.to, message.text, receiverSocketId);
                     }
                 } else {
                     res.status(409).json({ message: "Messages can only be sent to friends" });

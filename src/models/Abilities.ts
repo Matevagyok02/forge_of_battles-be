@@ -12,7 +12,7 @@ export class Abilities {
     @prop()
     discardRequirement?: DiscardRequirement;
 
-    private battle: Battle;
+    private battle?: Battle;
 
     constructor(battle: Battle) {
         this.battle = battle;
@@ -21,6 +21,10 @@ export class Abilities {
 
     setBattleRef(battle: Battle) {
         this.battle = battle;
+    }
+
+    clearBattleRef() {
+        this.battle = undefined;
     }
 
     addAbility(cardHolderId: string, ability: Ability, args?: RequirementArgs): boolean {
@@ -38,7 +42,7 @@ export class Abilities {
             if (ability.usageType === AbilityUsageType.eventDriven) {
                 const eventDrivenAbility = ability as EventDrivenAbility;
                 eventDrivenAbility.triggeredBy = eventDrivenAbility.selfTriggered ?
-                    cardHolderId : this.battle.getOpponentId(cardHolderId);
+                    cardHolderId : this.battle!.getOpponentId(cardHolderId);
                 this.activatedAbilities.push(ability);
             }
             else if (ability.subtype === AbilitySubtype.costModifier) {
@@ -50,7 +54,7 @@ export class Abilities {
                     this.activatedAbilities.push(ability as AttributeModifierAbility);
                 }
             } else if (ability.usageType === AbilityUsageType.instant) {
-                AbilityService.executeAbility(this.battle, ability as InstantAbility);
+                AbilityService.executeAbility(this.battle!, ability as InstantAbility);
             }
         }
         return true;
@@ -79,7 +83,7 @@ export class Abilities {
         eventDrivenAbilities.forEach(a => {
             const ability = a as EventDrivenAbility;
             if (ability.event.includes(event) && ability.triggeredBy === triggeredBy) {
-                AbilityService.executeAbility(this.battle, ability as InstantAbility);
+                AbilityService.executeAbility(this.battle!, ability as InstantAbility);
             }
         });
     }
@@ -94,7 +98,7 @@ export class Abilities {
 
             if (a.cardHolderId) {
                 if (ability.targetPositions?.self && ability.targetPositions.self.length === 1) {
-                    const player = this.battle.player(a.cardHolderId);
+                    const player = this.battle!.player(a.cardHolderId);
                     if (player) {
                         const pos = getNextPos(ability.targetPositions.self[0]);
                         if (pos) {
@@ -107,7 +111,7 @@ export class Abilities {
                     }
                 }
                 else if (ability.targetPositions?.opponent && ability.targetPositions.opponent.length === 1) {
-                    const opponent = this.battle.opponent(a.cardHolderId);
+                    const opponent = this.battle!.opponent(a.cardHolderId);
                     if (opponent) {
                         const pos = getNextPos(ability.targetPositions.opponent[0]);
                         if (pos) {
@@ -131,14 +135,14 @@ export class Abilities {
         attributeModifiers.forEach(a => {
             const ability = a as AttributeModifierAbility;
             if (ability.cardHolderId === deployerId && ability.targetPositions?.self.includes(Pos.defender)) {
-                const card = this.battle.player(deployerId)?.deployedCards.get(Pos.defender);
+                const card = this.battle!.player(deployerId)?.deployedCards.get(Pos.defender);
                 if (card) {
                     card.attack = card.attack + ability.attack;
                     card.defence = card.defence + ability.defence;
                 }
             }
             if (ability.cardHolderId != deployerId && ability.targetPositions?.opponent.includes(Pos.defender)) {
-                const card = this.battle.player(deployerId)?.deployedCards.get(Pos.defender);
+                const card = this.battle!.player(deployerId)?.deployedCards.get(Pos.defender);
                 if (card) {
                     card.attack = card.attack + ability.attack;
                     card.defence = card.defence + ability.defence;
@@ -154,9 +158,9 @@ export class Abilities {
             sacrifice: sacrifice ? sacrifice : false
         };
 
-        if (this.battle.timeLimit) {
-            const player = this.battle.player(playerId);
-            const opponent = this.battle.opponent(playerId);
+        if (this.battle!.timeLimit) {
+            const player = this.battle!.player(playerId);
+            const opponent = this.battle!.opponent(playerId);
             player?.timeLeft!.endTurn();
             opponent?.timeLeft!.startTurn();
         }
@@ -165,9 +169,9 @@ export class Abilities {
     removeDiscardRequirement(discardReq: DiscardRequirement) {
         this.discardRequirement = undefined;
 
-        if (this.battle.timeLimit) {
-            const player = this.battle.player(discardReq.player);
-            const opponent = this.battle.opponent(discardReq.player);
+        if (this.battle!.timeLimit) {
+            const player = this.battle!.player(discardReq.player);
+            const opponent = this.battle!.opponent(discardReq.player);
             player?.timeLeft!.startTurn();
             opponent?.timeLeft!.endTurn();
         }
@@ -183,7 +187,7 @@ export class Abilities {
         const targetPositions = requirements?.selectablePositions;
         const targetCardAmount = requirements?.selectedCardAmount;
 
-        const player = this.battle.player(ability.cardHolderId as string);
+        const player = this.battle!.player(ability.cardHolderId as string);
 
         if (player) {
             if (player.turnStage === TurnStages.ADVANCE_AND_STORM && ability.type === AbilityType.action) {
@@ -277,10 +281,10 @@ export class Abilities {
 
             const targetExists =
                 targetArg.self.every(pos =>
-                    this.battle.player(cardHolderId)?.deployedCards.has(pos)
+                    this.battle!.player(cardHolderId)?.deployedCards.has(pos)
                 ) &&
                 targetArg.opponent.every(pos =>
-                    this.battle.opponent(cardHolderId)?.deployedCards.has(pos)
+                    this.battle!.opponent(cardHolderId)?.deployedCards.has(pos)
                 );
 
             return validTarget && targetExists;
@@ -352,7 +356,7 @@ export class Abilities {
     private applyAttributeModifier(ability: AttributeModifierAbility) {
         if (ability.cardHolderId) {
             if (ability.targetPositions?.self && ability.targetPositions?.self.length > 0) {
-                const player = this.battle.player(ability.cardHolderId);
+                const player = this.battle!.player(ability.cardHolderId);
 
                 ability.targetPositions?.self.forEach(target => {
                     const card = player?.deployedCards.get(target);
@@ -363,7 +367,7 @@ export class Abilities {
                 });
             }
             if (ability.targetPositions?.opponent && ability.targetPositions?.opponent.length > 0) {
-                const opponent = this.battle.opponent(ability.cardHolderId);
+                const opponent = this.battle!.opponent(ability.cardHolderId);
 
                 ability.targetPositions?.self.forEach(target => {
                     const card = opponent?.deployedCards.get(target);
@@ -379,7 +383,7 @@ export class Abilities {
     private removeAttributeModifier(ability: AttributeModifierAbility) {
         if (ability.cardHolderId) {
             if (ability.targetPositions?.self && ability.targetPositions?.self.length > 0) {
-                const player = this.battle.player(ability.cardHolderId);
+                const player = this.battle!.player(ability.cardHolderId);
 
                 ability.targetPositions?.self.forEach(target => {
                     const card = player?.deployedCards.get(target);
@@ -390,7 +394,7 @@ export class Abilities {
                 });
             }
             if (ability.targetPositions?.opponent && ability.targetPositions?.opponent.length > 0) {
-                const opponent = this.battle.opponent(ability.cardHolderId);
+                const opponent = this.battle!.opponent(ability.cardHolderId);
 
                 ability.targetPositions?.self.forEach(target => {
                     const card = opponent?.deployedCards.get(target);
