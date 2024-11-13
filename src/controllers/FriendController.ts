@@ -36,6 +36,22 @@ export class FriendController {
         }
     }
 
+    notifyFriendsAtDisconnection = async (userId: string) => {
+        try {
+            const users = await this.friendService.getUsersById([userId]);
+
+            if (users && users[0]) {
+                const friends = users[0].friends;
+
+                if (friends && friends.length > 0) {
+                    await this.notificationService.notifyFriendsAtDisconnection(userId, friends);
+                }
+            }
+        } catch (e: any) {
+            console.error(e);
+        }
+    }
+
     sendFriendRequest = async(req: Request, res: Response)=> {
         try {
             const toId = req.query.to;

@@ -97,6 +97,15 @@ export class Battle {
         this.playerStates.forEach(player => player.drawingDeck.fill(placeholder));
     }
 
+    clearRefs() {
+        if (this.abilities) {
+            this.abilities.clearBattleRef();
+        }
+        if (this.playerStates) {
+            this.playerStates.forEach(player => player.clearBattleRef());
+        }
+    }
+
     hideOnHandCards(playerId: string) {
         const player = this.player(playerId);
         if (player) {

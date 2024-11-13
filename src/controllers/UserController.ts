@@ -34,10 +34,10 @@ export class UserController {
     getUserAndFriends = async(req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
-            const user = await this.userService.getUserAndFriends(userId);
+            const userAndFriends = await this.userService.getUserAndFriends(userId);
 
-            if (user)
-                res.json(user);
+            if (userAndFriends)
+                res.json(userAndFriends);
             else
                 res.status(404).json({ message: "The user was not found"});
         } catch (e: any) {

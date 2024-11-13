@@ -95,7 +95,7 @@ export class PlayerState {
     @prop()
     private drawsPerTurn!: number;
 
-    private _battle: Battle;
+    private _battle?: Battle;
     private _id: string;
 
     constructor(battle: Battle, id: string, opponentId: string, deck: Deck, timeLeft?: number) {
@@ -130,7 +130,7 @@ export class PlayerState {
                     return true;
                 } else if (
                     !this.deployedCards.has(Pos.vanguard) &&
-                    !this._battle.opponent(this._id)?.deployedCards.has(Pos.vanguard)
+                    !this._battle!.opponent(this._id)?.deployedCards.has(Pos.vanguard)
                 ) {
                     this.deployedCards.set(Pos.vanguard, cardToMove);
                     this.deployedCards.delete(Pos.stormer);
@@ -165,7 +165,7 @@ export class PlayerState {
 
     drawCards() {
         const drawnCards: string[] = [];
-        const count = this._battle.turn === 1 ? 1 : 2;
+        const count = this._battle!.turn === 1 ? 1 : 2;
 
         if (this.drawsPerTurn < 1 && this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES) {
             for (let i = 0; i < count; i++) {
@@ -175,7 +175,7 @@ export class PlayerState {
                     this.onHand.push(card);
                 }
             }
-            this._battle.abilities.applyEventDrivenAbilities(TriggerEvent.draw, this._id).then(() => {
+            this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.draw, this._id).then(() => {
                 return drawnCards;
             })
         } else {
@@ -244,11 +244,11 @@ export class PlayerState {
 
     storm(actionArgs?: RequirementArgs, posToAttack?: Pos.frontLiner | Pos.vanguard) {
         if (this.deployedCards.has(Pos.stormer)) {
-            const opponent = this._battle.opponent(this._id);
+            const opponent = this._battle!.opponent(this._id);
             const attacker = this.deployedCards.get(Pos.stormer)
 
             if (opponent && attacker) {
-                this._battle.abilities.applyEventDrivenAbilities(TriggerEvent.storm, this._id).then(() => {
+                this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.storm, this._id).then(() => {
                         if (posToAttack) {
                             const cardToAttack = opponent.deployedCards.get(posToAttack);
 
@@ -266,7 +266,7 @@ export class PlayerState {
                         }
                 }).then(() => {
                     if (attacker.actionAbility) {
-                        this._battle.abilities.addAbility(this._id, attacker.actionAbility, actionArgs);
+                        this._battle!.abilities.addAbility(this._id, attacker.actionAbility, actionArgs);
                     }
                     this.clearCard(Pos.stormer);
                 }).then(() => {
@@ -289,8 +289,8 @@ export class PlayerState {
                 card.actionAbility.requirements.mana = 0;
             }
 
-            this._battle.abilities.applyEventDrivenAbilities(TriggerEvent.useAction, this._id).then(() => {
-                return this._battle.abilities.addAbility(this._id, card.actionAbility!, args);
+            this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.useAction, this._id).then(() => {
+                return this._battle!.abilities.addAbility(this._id, card.actionAbility!, args);
             });
         } else {
             return false;
@@ -301,7 +301,7 @@ export class PlayerState {
         const card = this.deployedCards.get(pos);
 
         if (card) {
-            return this._battle.abilities.addAbility(this._id, card.passiveAbility, args);
+            return this._battle!.abilities.addAbility(this._id, card.passiveAbility, args);
         } else {
             return false;
         }
@@ -310,9 +310,9 @@ export class PlayerState {
     deploy(card: Card, useAsMana?: string[], forced?: boolean) {
         if (this.turnStage === TurnStages.DEPLOY_AND_USE_ACTIONS || forced) {
             const index = this.onHand.indexOf(card.id);
-            let cost = this._battle.abilities.applyCostModifiers(this._id, card.cost, TriggerEvent.deploy);
+            let cost = this._battle!.abilities.applyCostModifiers(this._id, card.cost, TriggerEvent.deploy);
 
-            this._battle.abilities.applyAttributesOnDeployedCard(this._id);
+            this._battle!.abilities.applyAttributesOnDeployedCard(this._id);
 
             if ((cost > 0 && this.useMana(cost, useAsMana)) || forced) {
                 cost = 0;
@@ -323,10 +323,11 @@ export class PlayerState {
                 !this.canDeploy() &&
                 cost === 0
             ) {
-                this._battle.abilities.applyEventDrivenAbilities(TriggerEvent.deploy,this._id);
-                this.deployedCards.set(Pos.defender, card);
-                this.onHand.splice(index, 1);
-                return true;
+                this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.deploy,this._id).then(() => {
+                    this.deployedCards.set(Pos.defender, card);
+                    this.onHand.splice(index, 1);
+                    return true;
+                });
             } else {
                 return false;
             }
@@ -341,12 +342,13 @@ export class PlayerState {
         };
 
         const completeDiscardOperation = () => {
-            this._battle.abilities.applyEventDrivenAbilities(TriggerEvent.discard, this._id);
-            this._battle.abilities.removeDiscardRequirement(discardRequirement);
-            return true;
+            this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.discard, this._id).then(() => {
+                this._battle!.abilities.removeDiscardRequirement(discardRequirement);
+                return true;
+            });
         }
 
-        if (JSON.stringify(this._battle.abilities.discardRequirement) === JSON.stringify(discardRequirement)) {
+        if (JSON.stringify(this._battle!.abilities.discardRequirement) === JSON.stringify(discardRequirement)) {
             if (Array.isArray(cardToDiscard)) {
                 if (cardToDiscard.every(card => this.onHand.includes(card))) {
                     cardToDiscard.forEach(card => {
@@ -377,7 +379,7 @@ export class PlayerState {
             this.removeBasicAndEventDrivenAbilities(card.passiveAbility);
             this.deployedCards.delete(pos);
             this.casualties.push(card.id);
-            this._battle.abilities.applyEventDrivenAbilities(TriggerEvent.cardDeath, this.id);
+            this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.cardDeath, this.id);
         }
     }
 
@@ -412,7 +414,7 @@ export class PlayerState {
             ability.usageType === AbilityUsageType.basic ||
             ability.usageType === AbilityUsageType.eventDriven
         ) {
-            this._battle.abilities.removePassiveAbility(this._id, ability.cardId);
+            this._battle!.abilities.removePassiveAbility(this._id, ability.cardId);
         }
     }
 
@@ -528,5 +530,9 @@ export class PlayerState {
     setBattleRefAndIds(battle: Battle, id: string) {
         this._battle = battle;
         this._id = id;
+    }
+
+    clearBattleRef() {
+        this._battle = undefined;
     }
 }

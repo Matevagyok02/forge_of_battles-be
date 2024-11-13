@@ -66,7 +66,17 @@ class NotificationService {
 
         friendSockets.forEach(socket => {
             if (socket) {
-                io.to(socket).emit("friend-connected", { friend: userId});
+                io.to(socket).emit("friend-connected", { userId: userId});
+            }
+        })
+    }
+
+    notifyFriendsAtDisconnection = async (userId: string, friends: string[]) => {
+        const friendSockets = await pubRedisClient.mget(friends);
+
+        friendSockets.forEach(socket => {
+            if (socket) {
+                io.to(socket).emit("friend-disconnected", { userId: userId});
             }
         })
     }

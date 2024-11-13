@@ -1,5 +1,6 @@
-import {getModelForClass, prop} from "@typegoose/typegoose";
+import {getModelForClass, modelOptions, prop, Severity} from "@typegoose/typegoose";
 
+@modelOptions({ options: { allowMixed: Severity.ALLOW } })
 class FriendRequest {
 
     @prop()
