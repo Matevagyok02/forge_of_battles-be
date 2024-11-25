@@ -44,9 +44,11 @@ chatRouter.get(`/unseen`, chatController.getUnseenMessages);
 chatRouter.post(``, chatController.send);
 
 matchRouter.get(``, matchController.getActiveMatches);
+matchRouter.get(`/last-created`, matchController.getLastCreated);
 matchRouter.post(`/create`, matchController.create);
 matchRouter.put(`/join`, matchController.join);
 matchRouter.delete(`/decline`, matchController.decline);
+matchRouter.delete(`/abandon`, matchController.abandonPendingMatch);
 
 router.use(`/user`, userRouter);
 router.use(`/friend`, friendRouter);

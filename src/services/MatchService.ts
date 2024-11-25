@@ -1,5 +1,4 @@
 import {Match, MatchModel} from "../models/Match";
-import {FlattenMaps} from "mongoose";
 import {generateKey} from "../utils";
 import {pubRedisClient} from "../redis";
 
@@ -19,13 +18,13 @@ export class MatchService {
         }
     }
 
-    async getActiveMatchesByUser(userId: string): Promise<FlattenMaps<Match>[] | null> {
+    async getActiveMatchesByUser(userId: string) {
         try {
             const filter = { $or: [
                     { player1Id: userId },
                     { player2Id: userId }
                 ]}
-            return await MatchModel.find(filter).lean();
+            return await MatchModel.find(filter).exec();
         } catch (e: any) {
             console.log(e);
             return null;
@@ -74,6 +73,28 @@ export class MatchService {
     async delete(key: string) {
         try {
             await MatchModel.deleteOne({key}).lean();
+        } catch (e: any) {
+            console.log(e);
+        }
+    }
+
+    async getLastCreatedMatch(userId: string) {
+        try {
+            return await MatchModel.findOne({player1Id: userId}).sort({createdAt: -1}).exec();
+        } catch (e: any) {
+            console.log(e);
+        }
+    }
+
+    async abandonPendingMatch(userId: string, key: string)  {
+        try {
+            const deleteMatch = await MatchModel.deleteOne({
+                    player1Id: userId,
+                    key: key
+                }
+            ).lean();
+
+            return deleteMatch.deletedCount > 0;
         } catch (e: any) {
             console.log(e);
         }
