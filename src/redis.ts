@@ -10,8 +10,14 @@ const pubRedisClient = new Redis({
 
 const subRedisClient = pubRedisClient.duplicate();
 
+const clear = async () => {
+    await pubRedisClient.flushall();
+}
+
 pubRedisClient.on('connect', () => {
-    console.log('Redis client connected');
+    clear().then(() => {
+        console.log('Redis client connected');
+    });
 });
 
 pubRedisClient.on('error', () => {

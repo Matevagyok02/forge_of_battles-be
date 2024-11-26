@@ -11,7 +11,7 @@ export class Battle {
     readonly playerStates!: Map<string, PlayerState>;
 
     @prop()
-    private turnOfPlayer: string;
+    private turnOfPlayer?: string;
 
     @prop({ _id: false })
     readonly abilities: Abilities;

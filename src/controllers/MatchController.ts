@@ -66,6 +66,43 @@ export class MatchController {
         }
     }
 
+    abandonPendingMatch = async(req: Request, res: Response)=> {
+        try {
+            const userId = getUserId(req);
+            const key = req.query.key;
+
+            if (typeof key === "string") {
+                const abandon = await this.matchService.abandonPendingMatch(userId as string, key);
+
+                if (abandon) {
+                    res.status(200).json({ message: "The match was successfully abandoned" });
+                } else {
+                    res.status(403).json({ message: "You cannot delete this match" });
+                }
+            } else {
+                res.status(400).json({ message: "'key' param is missing" });
+            }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
+    getLastCreated = async(req: Request, res: Response)=> {
+        try {
+            const userId = getUserId(req);
+            const match = await this.matchService.getLastCreatedMatch(userId as string);
+
+            if (match) {
+                match.battle.clearRefs();
+                res.status(200).json(match);
+            } else {
+                res.status(404).json({message: "No pending match was found"});
+            }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
     getActiveMatches = async(req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
