@@ -10,21 +10,22 @@ class Mongo {
         this.connect();
     }
 
+    private createIndex() {
+        MatchModel.collection.createIndex(
+            { updatedAt: 1 },
+            { expireAfterSeconds: this.inactivityTime })
+            .then(() => console.log('Mongo index created'))
+            .catch(() => console.error('Mongo index creation failed'));
+    }
+
     connect() {
         if (this.uri) {
             mongoose
                 .connect(this.uri)
-                .then(() =>
-                    MatchModel.collection.dropIndex("updatedAt_1")
-                        .then(() =>
-                            MatchModel.collection.createIndex(
-                                { updatedAt: 1 },
-                                { expireAfterSeconds: this.inactivityTime }
-                            ))
-                        .then(() =>
-                            console.log('MongoDB connected')
-                        )
-                )
+                .then(() => {
+                    console.log('MongoDB connected');
+                    this.createIndex();
+                })
                 .catch(() => {
                     console.error('MongoDB connection failed...');
                 });
