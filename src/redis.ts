@@ -1,12 +1,9 @@
 import Redis from "ioredis";
 
 const busyStatusIndicator = "!";
+const serviceUri = process.env.FOB_REDIS_URI as string;
 
-const pubRedisClient = new Redis({
-    password: process.env.FOB_REDIS_PASSWORD,
-    host: 'redis-15658.c238.us-central1-2.gce.redns.redis-cloud.com',
-    port: 15658
-});
+const pubRedisClient = new Redis(serviceUri);
 
 const subRedisClient = pubRedisClient.duplicate();
 
