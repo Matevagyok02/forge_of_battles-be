@@ -1,6 +1,7 @@
-import {Match, MatchModel} from "../models/Match";
+import {Match, MatchModel, MatchStage} from "../models/Match";
 import {generateKey} from "../utils";
 import {pubRedisClient} from "../redis";
+
 
 export class MatchService {
 
@@ -31,6 +32,15 @@ export class MatchService {
         }
     }
 
+    async getMatchByKey(key: string) {
+        try {
+            return await MatchModel.findOne({key}).exec();
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+
     async create(player1Id: string, player2Id?: string, timeLimit?: number) {
         try {
             const key = await this.getKey();
@@ -45,20 +55,32 @@ export class MatchService {
 
     async join(userId: string, key: string) {
         try {
-            const match = await MatchModel.findOne({key}, "player1Id player2Id").exec();
+            const match = await MatchModel.findOne({key}).exec();
 
             if (match) {
                 const player1Id = match.player1Id;
                 const player2Id = match.getPlayer2Id();
 
+                if (player1Id === userId) {
+                    if (player2Id) {
+                        match.setStage(MatchStage.preparing);
+                        await match.save();
+                    }
+                    return player1Id;
+                }
+
                 if (player2Id) {
-                    if (player2Id === userId)
+                    if (player2Id === userId) {
+                        match.setStage(MatchStage.preparing);
+                        await match.save();
                         return player1Id;
+                    }
                     else
                         return null;
                 }
                 else {
                     match.setPlayer2Id(userId);
+                    match.setStage(MatchStage.preparing);
                     await match.save();
                     return player1Id;
                 }
@@ -86,19 +108,57 @@ export class MatchService {
         }
     }
 
-    async abandonPendingMatch(userId: string, key: string)  {
+    async abandonPendingMatch(userId: string, key: string) {
         try {
-            const deleteMatch = await MatchModel.deleteOne({
+            const match = await MatchModel.findOne({
                     player1Id: userId,
                     key: key
                 }
-            ).lean();
+            ).exec();
 
-            return deleteMatch.deletedCount > 0;
+            if (!match)
+                return undefined;
+
+            if (match.getMatchStage() === MatchStage.pending) {
+                const deleteMatch = await MatchModel.deleteOne({
+                    player1Id: userId,
+                    key: key
+                }).lean();
+                return deleteMatch.deletedCount > 0;
+            } else {
+                return false;
+            }
         } catch (e: any) {
             console.log(e);
+            return false;
         }
     }
+
+    //TODO: Implement this
+
+    // async abandonOngoingMatch(userId: string, key: string) {
+    //     try {
+    //         const match = await MatchModel.findOne({
+    //                 player1Id: userId,
+    //                 key: key
+    //             },
+    //             "updatedAt"
+    //         ).lean().exec();
+    //
+    //         if (match && new Date().getTime() - match.updatedAt > 1000 * 60 * require("../game-rules").timeToLeaveOngoing) {
+    //             const deleteMatch = await MatchModel.deleteOne({
+    //                 player1Id: userId,
+    //                 key: key
+    //             }).lean();
+    //             return deleteMatch.deletedCount > 0;
+    //         } else {
+    //             return false;
+    //         }
+    //     } catch (e: any) {
+    //         console.log(e);
+    //         return false;
+    //     }
+    // }
 
     async getHost(key: string) {
         try {

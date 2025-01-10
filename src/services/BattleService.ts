@@ -1,6 +1,5 @@
 import {Match, MatchModel} from "../models/Match";
 import {Card, CardModel, Deck} from "../models/Card";
-import {Battle} from "../models/Battle";
 import {Pos} from "../models/PlayerState";
 import {RequirementArgs} from "../models/Abilities";
 
@@ -22,18 +21,15 @@ export class BattleService {
         }
     }
 
-    setPlayer = async (deck: Deck): Promise<{ battle: Battle | null, arePlayersReady: boolean } | null> => {
+    setPlayer = async (deck: Deck): Promise<boolean | null> => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
             if (match) {
                 match.battle.initPlayerState(this.playerId, deck);
                 await match.save();
-                if (match.battle.hasStarted()) {
-                    return {battle: match.battle, arePlayersReady: true};
-                }
-                else
-                    return { battle: null, arePlayersReady: false };
+
+                return match.battle.hasStarted();
             } else {
                 return null;
             }
@@ -382,7 +378,7 @@ export class BattleService {
                     { player2Id: userId }
                 ]
             };
-            let match = await MatchModel.findOne(filter, "player1Id player2Id").lean();
+            let match = await MatchModel.findOne(filter, "player1Id player2Id").exec();
 
             if (match) {
                 const player1Id = match.player1Id;

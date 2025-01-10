@@ -43,7 +43,8 @@ chatRouter.get(``, chatController.get);
 chatRouter.get(`/unseen`, chatController.getUnseenMessages);
 chatRouter.post(``, chatController.send);
 
-matchRouter.get(``, matchController.getActiveMatches);
+matchRouter.get(``, matchController.getMatchByKey);
+matchRouter.get(`/active`, matchController.getActiveMatches);
 matchRouter.get(`/last-created`, matchController.getLastCreated);
 matchRouter.post(`/create`, matchController.create);
 matchRouter.put(`/join`, matchController.join);

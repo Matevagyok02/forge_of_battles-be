@@ -1,6 +1,12 @@
 import {getModelForClass, modelOptions, prop} from "@typegoose/typegoose";
 import {Battle} from "./Battle";
 
+export enum MatchStage {
+    pending = "pending",
+    preparing = "preparing",
+    started = "started"
+}
+
 @modelOptions({ schemaOptions: { timestamps: true } })
 export class Match {
 
@@ -20,7 +26,10 @@ export class Match {
     private player2Id!: string;
 
     @prop()
-    readonly started!: boolean;
+    private stage!: MatchStage;
+
+    @prop({ _id: false })
+    readonly updatedAt!: Date;
 
     setPlayer2Id(player2Id: string) {
         this.battle.setTurnOfPlayer(player2Id);
@@ -31,15 +40,22 @@ export class Match {
         return this.player2Id;
     }
 
-    constructor(key: string, randomMatch: boolean, player1Id: string, player2Id?: string, timeLimitPerPLayer?: number) {
-        this.battle = new Battle(player2Id, timeLimitPerPLayer);
+    getMatchStage() {
+        return this.stage;
+    }
+
+    setStage(stage: MatchStage) {
+        this.stage = stage;
+    }
+
+    constructor(key: string, randomMatch: boolean, player1Id: string, player2Id?: string, timeLimit?: number) {
+        this.battle = new Battle(player2Id, timeLimit);
         this.key = key;
         this.player1Id = player1Id;
         this.player2Id = player2Id ? player2Id : "";
         this.randomMatch = randomMatch;
-        this.started = false;
+        this.stage = MatchStage.pending;
     }
-
 }
 
 export const MatchModel = getModelForClass(
