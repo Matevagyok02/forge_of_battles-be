@@ -36,5 +36,6 @@ export const CardModel = getModelForClass(
 
 export enum Deck {
     light = "light",
-    shadow = "shadow"
+    darkness = "darkness",
+    venom = "venom"
 }

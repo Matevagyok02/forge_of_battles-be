@@ -77,7 +77,11 @@ export class MatchController {
                 if (abandon) {
                     res.status(200).json({ message: "The match was successfully abandoned" });
                 } else {
-                    res.status(403).json({ message: "You cannot delete this match" });
+                    if (typeof abandon === "boolean") {
+                        res.status(403).json({ message: "You cannot delete this match" });
+                    } else {
+                        res.status(204).json({ message: "The match does not exists or has already been deleted" });
+                    }
                 }
             } else {
                 res.status(400).json({ message: "'key' param is missing" });
@@ -119,6 +123,21 @@ export class MatchController {
         }
     }
 
+    getMatchByKey = async(req: Request, res: Response)=> {
+        try {
+            const match = await this.matchService.getMatchByKey(req.query.key as string);
+
+            if (match) {
+                match.battle.clearRefs();
+                res.status(200).json(match);
+            } else {
+                res.status(404).json({message: "The match was not found"});
+            }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
     join = async(req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
@@ -128,7 +147,9 @@ export class MatchController {
                 const hostPlayerId = await this.matchService.join(userId, key);
 
                 if (hostPlayerId) {
-                    await this.notificationService.acceptedMatchInvite(hostPlayerId, key);
+                    if (hostPlayerId !== userId) {
+                        await this.notificationService.acceptedMatchInvite(hostPlayerId, key);
+                    }
                     res.status(200).json({ message: "You have successfully joined the game" });
                 } else {
                     res.status(403).json({ message: "You cannot join this game" });
@@ -144,12 +165,14 @@ export class MatchController {
     decline = async(req: Request, res: Response) => {
         try {
             const key = req.query.key;
+            const userId = getUserId(req);
 
+            const user = await this.userService.getUserByUserId(userId);
             const hostPlayerId = await this.matchService.getHost(key as string);
 
-            if (hostPlayerId) {
+            if (hostPlayerId && user) {
                 await this.matchService.delete(key as string);
-                await this.notificationService.declinedMatchInvite(hostPlayerId, key as string);
+                await this.notificationService.declinedMatchInvite(hostPlayerId, user);
                 res.status(200).json({ message: "The invite was successfully declined" });
             } else {
                 res.status(404).json({ message: "The invite, you are trying to decline was not found" });

@@ -1,5 +1,6 @@
 import {busyStatusIndicator, pubRedisClient} from "../redis";
 import {io} from "../server";
+import {User} from "../models/User";
 
 class NotificationService {
 
@@ -37,17 +38,17 @@ class NotificationService {
         }
     }
 
-    acceptedMatchInvite = async (receiverId: string, match: any) => {
+    acceptedMatchInvite = async (receiverId: string, key: string) => {
         const socket = await this.getSocketIfAvailable(receiverId);
         if (socket) {
-            io.to(socket).emit("match-invite-accepted", match);
+            io.to(socket).emit("match-invite-accepted", key);
         }
     }
 
-    declinedMatchInvite = async (receiverId: string, match: any) => {
+    declinedMatchInvite = async (receiverId: string, decliner: User) => {
         const socket = await this.getSocketIfAvailable(receiverId);
         if (socket) {
-            io.to(socket).emit("match-invite-declined", match);
+            io.to(socket).emit("match-invite-declined", decliner);
         }
     }
 

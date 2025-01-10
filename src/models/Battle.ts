@@ -7,7 +7,7 @@ const placeholder = "card";
 
 export class Battle {
 
-    @prop({ type: String, _id: false })
+    @prop({ type: PlayerState, _id: false })
     readonly playerStates!: Map<string, PlayerState>;
 
     @prop()
@@ -23,6 +23,7 @@ export class Battle {
     turn: number;
 
     constructor(player2Id?: string, timeLimit?: number) {
+        this.playerStates = new Map();
         this.turnOfPlayer = player2Id ? player2Id : "";
         this.abilities = new Abilities(this);
         this.timeLimit = timeLimit;

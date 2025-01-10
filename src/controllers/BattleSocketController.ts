@@ -1,82 +1,71 @@
 import {BattleService, RawRequirementArgs} from "../services/BattleService";
-import {Server, Namespace, Socket} from "socket.io";
+import {Namespace, Socket} from "socket.io";
 import {busyStatusIndicator, pubRedisClient} from "../redis";
 import {Deck} from "../models/Card";
 import {Battle} from "../models/Battle";
+import {MatchStage} from "../models/Match";
 
 class BattleSocketController {
 
-    private readonly nsp!: Namespace;
+    private readonly nsp: Namespace;
+    private readonly key: string;
+    private readonly userId: string;
+    private userSocket: string;
     private battleService!: BattleService;
-    private key!: string;
-    private userId!: string;
-    private userSocket!: string;
     private opponentId!: string;
 
-    constructor(io: Server) {
-        this.nsp = io.of("/battle");
-        this.setUp();
+    constructor(nsp: Namespace, socket: Socket) {
+        this.nsp = nsp;
+        this.userSocket = socket.id;
+        this.userId = socket.handshake.auth.userId;
+        this.key = socket.handshake.query.key as string;
+        this.setUp(socket);
     }
 
-    private setUp = () => {
-        const nsp: Namespace = this.nsp;
+    private async setUp(socket: Socket) {
+        const opponentId = await BattleService.getOpponentId(this.userId, this.key);
 
-        nsp.on("connection", async (socket: Socket) => {
-            const userId = socket.handshake.auth.userId;
-            const key = socket.handshake.query.key as string;
-            const opponentId = await BattleService.getOpponentId(userId, key);
+        if (!opponentId) {
+            this.nsp.to(socket.id).emit("connection-fail", { message: "Failed to connect" });
+        } else {
+            this.opponentId = opponentId;
+            this.battleService = new BattleService(this.userId, this.key);
+            await this.joinMatchRoom();
 
-            if (!opponentId) {
-                nsp.to(socket.id).emit(
-                    "connection-fail",
-                    { message: "Failed to connect" }
-                );
-            } else {
-                this.userSocket = socket.id;
-                this.key = key;
-                this.userId = userId;
-                this.opponentId = opponentId;
-                this.battleService = new BattleService(userId, key);
+            //basic events for starting the game
 
-                //basic events for starting the game
+            socket.on("ready", async (data: { deck: string }) => await this.setReadyState(data));
 
-                socket.on("join", async () => await this.joinMatchRoom(socket.id));
+            socket.on("disconnect", async () => await this.leaveMatchRoom());
 
-                socket.on("disconnect", async () => await this.leaveMatchRoom());
+            //basic game events
 
-                socket.on("deck-select", async (data: { deck: string }) => await this.selectDeck(data));
+            socket.on("start-turn", async () => await this.startTurn());
 
-                socket.on("ready", async (data: { deck: string }) => await this.setReadyState(data));
+            socket.on("end-turn", async () => await this.endTurn());
 
-                //basic game events
+            //advanced game events
 
-                socket.on("start-turn", async () => await this.startTurn());
+            socket.on("draw", async () => await this.drawCards());
 
-                socket.on("end-turn", async () => await this.endTurn());
+            socket.on("redraw", async (data: { cardId: string }) => await this.redrawCards(data));
 
-                //advanced game events
+            socket.on("advance", async () => await this.advanceCards());
 
-                socket.on("draw", async () => await this.drawCards());
+            socket.on("deploy", async (data: { cardId: string, sacrificeCards?: string[]}) => await this.deploy(data));
 
-                socket.on("redraw", async (data: { cardId: string }) => await this.redrawCards(data));
+            socket.on("storm", async (data: { posToAttack?: string, args?: RawRequirementArgs }) => await this.storm(data));
 
-                socket.on("advance", async () => await this.advanceCards());
+            socket.on("use-action", async (data: { cardId: string, args?: RawRequirementArgs })=> this.useAction(data));
 
-                socket.on("deploy", async (data: { cardId: string, sacrificeCards?: string[]}) => await this.deploy(data));
+            socket.on("use-passive", async (data: { pos: string, args?: RawRequirementArgs })=> this.usePassive(data));
 
-                socket.on("storm", async (data: { posToAttack?: string, args?: RawRequirementArgs }) => await this.storm(data));
+            socket.on("add-mana", async () => await this.addStormerToMana());
 
-                socket.on("use-action", async (data: { cardId: string, args?: RawRequirementArgs })=> this.useAction(data));
+            socket.on("move-to-front", async () => await this.moveToFrontLine());
 
-                socket.on("use-passive", async (data: { pos: string, args?: RawRequirementArgs })=> this.usePassive(data));
-
-                socket.on("add-mana", async () => await this.addStormerToMana());
-
-                socket.on("move-to-front", async () => await this.moveToFrontLine());
-
-                socket.on("discard", async (data: { cardToDiscard: string[] | string }) => await this.discard(data));
-            }
-        });
+            socket.on("discard", async (data: { cardToDiscard: string[] | string }) => await this.discard(data));
+        }
     }
 
     //basic game operations
@@ -219,15 +208,11 @@ class BattleSocketController {
             const deck = Deck[data.deck as keyof typeof Deck];
             const setPlayer = await this.battleService.setPlayer(deck);
 
-            if (setPlayer) {
-                const { battle, arePlayersReady } = setPlayer;
+            if (typeof setPlayer === "boolean") {
+                await this.emitToOpponent("opponent-ready", "Your opponent is ready");
 
-                if (battle && arePlayersReady) {
-                    await this.emitToOpponent("ready", { battle: battle });
-                    await this.emitToSelf("ready", { battle: battle });
-                    await pubRedisClient.hset(this.key, "started", 1);
-                } else {
-                    await this.emitToOpponent("opponent-ready", data);
+                if (setPlayer) {
+                    await pubRedisClient.hset(this.key, "stage", MatchStage.started);
                 }
             } else {
                 await this.emitErrorMessage();
@@ -235,17 +220,9 @@ class BattleSocketController {
         }
     }
 
-    private async selectDeck(data: { deck: string }) {
-        if ((<any>Object).values(Deck).includes(data.deck)) {
-            await this.emitToOpponent("deck-select", data);
-        } else {
-            await this.emitErrorMessage();
-        }
-    }
-
-    private async joinMatchRoom(socketId: string) {
+    private async joinMatchRoom() {
         const room = await pubRedisClient.hgetall(this.key);
-        if (room && room["started"]) {
+        if (room && room["stage"] === MatchStage.started) {
             const battle = await this.battleService.getBattle();
             this.emitToSelf("reconnect", { battle: battle });
 
@@ -257,7 +234,7 @@ class BattleSocketController {
         }
 
         await pubRedisClient.set(this.userId, busyStatusIndicator);
-        await pubRedisClient.hset(this.key, { [this.userId]: socketId });
+        await pubRedisClient.hset(this.key, { [this.userId]: this.userSocket });
     }
 
     private async leaveMatchRoom() {
@@ -269,7 +246,7 @@ class BattleSocketController {
     //event emitting
 
     private emitToSelf(ev: string, data: any) {
-        if (data.battle && data.battle instanceof Battle) {
+        if (data && data.battle && data.battle instanceof Battle) {
             (data.battle as Battle).clearRefs();
             (data.battle as Battle).hideOnHandCards(this.opponentId);
             (data.battle as Battle).hideDrawingDeckCards();
@@ -280,7 +257,7 @@ class BattleSocketController {
 
     private async emitToOpponent(ev: string, data: any) {
         const opponentSocketId = await pubRedisClient.hget(this.key, this.opponentId);
-        if (data.battle && data.battle instanceof Battle) {
+        if (data && data.battle && data.battle instanceof Battle) {
             (data.battle as Battle).clearRefs();
             (data.battle as Battle).hideOnHandCards(this.userId);
             (data.battle as Battle).hideDrawingDeckCards();

@@ -1,5 +1,6 @@
 import Redis from "ioredis";
 
+let connected = false;
 const busyStatusIndicator = "!";
 const serviceUri = process.env.FOB_REDIS_URI as string;
 
@@ -12,9 +13,12 @@ const clear = async () => {
 }
 
 pubRedisClient.on('connect', () => {
-    clear().then(() => {
-        console.log('Redis client connected');
-    });
+    if (!connected) {
+        clear().then(() => {
+            connected = true;
+            console.log('Redis client connected')
+        })
+    }
 });
 
 pubRedisClient.on('error', () => {

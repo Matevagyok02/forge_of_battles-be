@@ -3,7 +3,7 @@ import http from "http";
 import cors from "cors";
 import router from "./routes";
 import { auth } from "express-oauth2-jwt-bearer";
-import {Server} from "socket.io";
+import {Server, Socket} from "socket.io";
 import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
 import BattleSocketController from "./controllers/BattleSocketController";
@@ -30,7 +30,7 @@ const io = new Server(
 
 io.adapter(createAdapter(pubRedisClient, subRedisClient));
 
-io.on("connection", (socket: any) => {
+io.on("connection", (socket: Socket) => {
     const userId = socket.handshake.auth.userId;
     if (typeof userId !== "string")
         return;
@@ -48,12 +48,15 @@ io.on("connection", (socket: any) => {
     });
 });
 
+io.of("/battle").on("connection", (socket: Socket) => {
+    new BattleSocketController(io.of("/battle"), socket);
+});
+
 export {io}
 
 require("./swagger");
 
 server.listen(port, () => {
     new Mongo();
-    new BattleSocketController(io);
     console.log("The server is LIVE");
 });
