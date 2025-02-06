@@ -14,6 +14,9 @@ export class Card {
     readonly deck!: Deck;
 
     @prop()
+    readonly pieces!: number;
+
+    @prop()
     attack!: number;
 
     @prop()

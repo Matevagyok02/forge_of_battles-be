@@ -98,9 +98,9 @@ export class PlayerState {
     private _battle?: Battle;
     private _id: string;
 
-    constructor(battle: Battle, id: string, opponentId: string, deck: Deck, timeLeft?: number) {
+    constructor(battle: Battle, id: string, opponentId: string, deck: Deck, cards: CardWithPieces[], timeLeft?: number) {
         this.deck = deck;
-        this.drawingDeck = this.assembleAndShuffleDeck(deck);
+        this.drawingDeck = this.assembleAndShuffleDeck(cards);
         this.casualties = [];
         this.onHand = [];
         this.mana = 0;
@@ -418,12 +418,11 @@ export class PlayerState {
         }
     }
 
-    private assembleAndShuffleDeck(deckId: Deck): string[] {
+    private assembleAndShuffleDeck(cards: CardWithPieces[]): string[] {
         const drawingDeck: string[] = [];
-        const cards: { id: string, count: number }[] = require("../../decks.json")[deckId];
 
         cards.forEach(card => {
-            for (let i = 0; i < card.count; i++) {
+            for (let i = 0; i < card.pieces; i++) {
                 drawingDeck.push(card.id);
             }
         });
@@ -535,4 +534,9 @@ export class PlayerState {
     clearBattleRef() {
         this._battle = undefined;
     }
+}
+
+export interface CardWithPieces {
+    id: string;
+    pieces: number;
 }

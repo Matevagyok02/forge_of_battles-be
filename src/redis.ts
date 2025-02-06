@@ -14,8 +14,8 @@ const clear = async () => {
 
 pubRedisClient.on('connect', () => {
     if (!connected) {
+        connected = true;
         clear().then(() => {
-            connected = true;
             console.log('Redis client connected')
         })
     }

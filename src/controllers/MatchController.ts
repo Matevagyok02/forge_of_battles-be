@@ -66,22 +66,21 @@ export class MatchController {
         }
     }
 
-    abandonPendingMatch = async(req: Request, res: Response)=> {
+    abandon = async(req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
             const key = req.query.key;
 
             if (typeof key === "string") {
-                const abandon = await this.matchService.abandonPendingMatch(userId as string, key);
+                const abandon = await this.matchService.abandon(userId as string, key);
 
-                if (abandon) {
+                if (abandon === 0) {
                     res.status(200).json({ message: "The match was successfully abandoned" });
+                }
+                else if (abandon === 1) {
+                    res.status(403).json({ message: "You cannot abandon this match" });
                 } else {
-                    if (typeof abandon === "boolean") {
-                        res.status(403).json({ message: "You cannot delete this match" });
-                    } else {
-                        res.status(204).json({ message: "The match does not exists or has already been deleted" });
-                    }
+                    res.status(204).json({ message: "The match does not exists or has already been deleted" });
                 }
             } else {
                 res.status(400).json({ message: "'key' param is missing" });
@@ -107,14 +106,14 @@ export class MatchController {
         }
     }
 
-    getActiveMatches = async(req: Request, res: Response)=> {
+    getActive = async(req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
-            const matches = await this.matchService.getActiveMatchesByUser(userId as string);
+            const match = await this.matchService.getActiveMatchByUser(userId as string);
 
-            if (matches && matches.length > 0) {
-                matches.forEach(match => match.battle.clearRefs());
-                res.status(200).json(matches);
+            if (match) {
+                match.battle.clearRefs();
+                res.status(200).json(match);
             } else {
                 res.status(404).json({message: "No active match was found"});
             }
@@ -123,9 +122,9 @@ export class MatchController {
         }
     }
 
-    getMatchByKey = async(req: Request, res: Response)=> {
+    getByKey = async(req: Request, res: Response)=> {
         try {
-            const match = await this.matchService.getMatchByKey(req.query.key as string);
+            const match = await this.matchService.getByKey(req.query.key as string);
 
             if (match) {
                 match.battle.clearRefs();
@@ -142,20 +141,41 @@ export class MatchController {
         try {
             const userId = getUserId(req);
             const key = req.query.key;
+            const hasUnfinishedMatch = await this.matchService.hasUnfinishedMatch(userId);
 
-            if (typeof key === "string") {
-                const hostPlayerId = await this.matchService.join(userId, key);
-
-                if (hostPlayerId) {
-                    if (hostPlayerId !== userId) {
-                        await this.notificationService.acceptedMatchInvite(hostPlayerId, key);
-                    }
-                    res.status(200).json({ message: "You have successfully joined the game" });
-                } else {
-                    res.status(403).json({ message: "You cannot join this game" });
-                }
+            if (hasUnfinishedMatch) {
+                res.status(409).json({ message: "You are already in a match" });
+                return;
             } else {
-                res.status(400).json({ message: "'key' param is missing" });
+                if (typeof key === "string") {
+                    const hostPlayerId = await this.matchService.join(userId, key);
+
+                    if (hostPlayerId) {
+                        if (hostPlayerId !== userId) {
+                            await this.notificationService.acceptedMatchInvite(hostPlayerId, key);
+                        }
+                        res.status(200).json({ message: "You have successfully joined the game" });
+                    } else {
+                        res.status(403).json({ message: "You cannot join this game" });
+                    }
+                } else {
+                    res.status(400).json({ message: "'key' param is missing" });
+                }
+            }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
+    leave = async(req: Request, res: Response) => {
+        try {
+            const userId = getUserId(req);
+            const leaveMatch = await this.matchService.leave(userId);
+
+            if (leaveMatch) {
+                res.status(200).json({ message: "You have successfully left the match" });
+            } else {
+                res.status(403).json({ message: "You are not in a match" });
             }
         } catch (e: any) {
             handleServerError(e, res);
@@ -199,7 +219,7 @@ export class MatchController {
     private async hasPenalty(userId: string) {
         try {
             const user = await UserModel.findOne({userId}, "penaltyCreatedAt").lean();
-            const timeout = require("../../game-rules.json").penaltyTimeout * 1000 * 60;
+            const timeout = require("../../game-rules.json").penaltyTimeout;
 
             if (user?.penaltyCreatedAt) {
                 return user.penaltyCreatedAt.getTime() + timeout < Date.now();
