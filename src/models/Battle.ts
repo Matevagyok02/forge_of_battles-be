@@ -1,6 +1,6 @@
 import {prop} from "@typegoose/typegoose";
 import {Deck} from "./Card";
-import {PlayerState, Pos} from "./PlayerState";
+import {CardWithPieces, PlayerState, Pos} from "./PlayerState";
 import {Abilities, TriggerEvent} from "./Abilities";
 
 const placeholder = "card";
@@ -84,9 +84,11 @@ export class Battle {
         return this.playerStates.size === 2;
     }
 
-    initPlayerState(playerId: string, deckId: Deck) {
+    initPlayerState(playerId: string, deckId: Deck, cards: CardWithPieces[]) {
         if (this.playerStates.size < 2) {
-            this.playerStates.set(playerId, new PlayerState(this, playerId, this.getOpponentId(playerId), deckId, this.timeLimit));
+            this.playerStates.set(
+                playerId,
+                new PlayerState(this, playerId, this.getOpponentId(playerId), deckId, cards, this.timeLimit));
         }
     }
 

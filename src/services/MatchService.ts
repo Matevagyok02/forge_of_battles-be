@@ -2,7 +2,6 @@ import {Match, MatchModel, MatchStage} from "../models/Match";
 import {generateKey} from "../utils";
 import {pubRedisClient} from "../redis";
 
-
 export class MatchService {
 
     async isInGame(userId: string): Promise<boolean> {
@@ -19,20 +18,23 @@ export class MatchService {
         }
     }
 
-    async getActiveMatchesByUser(userId: string) {
+    async getActiveMatchByUser(userId: string) {
         try {
-            const filter = { $or: [
-                    { player1Id: userId },
-                    { player2Id: userId }
-                ]}
-            return await MatchModel.find(filter).exec();
+            const filter = {
+                player2Id: userId,
+                $or: [
+                    {stage: MatchStage.preparing},
+                    {stage: MatchStage.started}
+                ]
+            }
+            return await MatchModel.findOne(filter).sort({ createdAt: -1 }).exec()
         } catch (e: any) {
             console.log(e);
             return null;
         }
     }
 
-    async getMatchByKey(key: string) {
+    async getByKey(key: string) {
         try {
             return await MatchModel.findOne({key}).exec();
         } catch (e: any) {
@@ -50,6 +52,20 @@ export class MatchService {
         } catch (e: any) {
             console.log(e);
             return null;
+        }
+    }
+
+    async hasUnfinishedMatch(userId: string) {
+        try {
+            const filter = {
+                player2Id: userId,
+                $or: [{ stage: MatchStage.preparing }, { stage: MatchStage.started }]
+            }
+            const unfinishedMatch = await MatchModel.exists(filter).exec();
+            return !!unfinishedMatch;
+        } catch (e: any) {
+            console.log(e);
+            return false;
         }
     }
 
@@ -92,6 +108,21 @@ export class MatchService {
         }
     }
 
+    async leave(userId: string) {
+        try {
+            const filter = {
+                player2Id: userId,
+                $or: [{ stage: MatchStage.preparing }, { stage: MatchStage.started }]
+            }
+
+            const deleteMatch = await MatchModel.deleteOne(filter).lean();
+            return deleteMatch.deletedCount > 0;
+        } catch (e: any) {
+            console.log(e);
+            return false;
+        }
+    }
+
     async delete(key: string) {
         try {
             await MatchModel.deleteOne({key}).lean();
@@ -108,57 +139,39 @@ export class MatchService {
         }
     }
 
-    async abandonPendingMatch(userId: string, key: string) {
+    async abandon(userId: string, key: string) {
+        const inactivityTimeReq = require("../../game-rules.json").abandonInactivityTime;
+        const filter = {
+            player1Id: userId,
+            key: key
+        };
+
         try {
-            const match = await MatchModel.findOne({
-                    player1Id: userId,
-                    key: key
-                }
-            ).exec();
+            const match = await MatchModel.findOne(filter).exec();
 
-            if (!match)
-                return undefined;
-
-            if (match.getMatchStage() === MatchStage.pending) {
-                const deleteMatch = await MatchModel.deleteOne({
-                    player1Id: userId,
-                    key: key
-                }).lean();
-                return deleteMatch.deletedCount > 0;
+            if (
+                match &&
+                (
+                    match.getMatchStage() === MatchStage.pending ||
+                    match.getPlayer2Id() === "" ||
+                    (
+                        ((match.getMatchStage() === MatchStage.preparing && match.battle.playerStates.has(userId)) ||
+                            (match.getMatchStage() === MatchStage.started && !match.battle.isTurnOfPlayer(userId)))
+                        &&
+                        Date.now() - match.updatedAt.getTime() > inactivityTimeReq
+                    )
+                )
+            ) {
+                const deleteMatch = await MatchModel.deleteOne(filter).lean();
+                return deleteMatch.deletedCount > 0 ? 0 : 2;
             } else {
-                return false;
+                return 1;
             }
         } catch (e: any) {
             console.log(e);
-            return false;
+            return 2;
         }
     }
-
-    //TODO: Implement this
-
-    // async abandonOngoingMatch(userId: string, key: string) {
-    //     try {
-    //         const match = await MatchModel.findOne({
-    //                 player1Id: userId,
-    //                 key: key
-    //             },
-    //             "updatedAt"
-    //         ).lean().exec();
-    //
-    //         if (match && new Date().getTime() - match.updatedAt > 1000 * 60 * require("../game-rules").timeToLeaveOngoing) {
-    //             const deleteMatch = await MatchModel.deleteOne({
-    //                 player1Id: userId,
-    //                 key: key
-    //             }).lean();
-    //             return deleteMatch.deletedCount > 0;
-    //         } else {
-    //             return false;
-    //         }
-    //     } catch (e: any) {
-    //         console.log(e);
-    //         return false;
-    //     }
-    // }
 
     async getHost(key: string) {
         try {

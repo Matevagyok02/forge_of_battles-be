@@ -1,6 +1,6 @@
 import {Match, MatchModel} from "../models/Match";
 import {Card, CardModel, Deck} from "../models/Card";
-import {Pos} from "../models/PlayerState";
+import {CardWithPieces, Pos} from "../models/PlayerState";
 import {RequirementArgs} from "../models/Abilities";
 
 export class BattleService {
@@ -21,12 +21,12 @@ export class BattleService {
         }
     }
 
-    setPlayer = async (deck: Deck): Promise<boolean | null> => {
+    setPlayer = async (deck: Deck, cards: CardWithPieces[]): Promise<boolean | null> => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
             if (match) {
-                match.battle.initPlayerState(this.playerId, deck);
+                match.battle.initPlayerState(this.playerId, deck, cards);
                 await match.save();
 
                 return match.battle.hasStarted();

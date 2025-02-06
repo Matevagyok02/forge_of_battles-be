@@ -4,6 +4,7 @@ import {busyStatusIndicator, pubRedisClient} from "../redis";
 import {Deck} from "../models/Card";
 import {Battle} from "../models/Battle";
 import {MatchStage} from "../models/Match";
+import {CardService} from "../services/CardService";
 
 class BattleSocketController {
 
@@ -12,6 +13,7 @@ class BattleSocketController {
     private readonly userId: string;
     private userSocket: string;
     private battleService!: BattleService;
+    private cardService!: CardService;
     private opponentId!: string;
 
     constructor(nsp: Namespace, socket: Socket) {
@@ -30,6 +32,7 @@ class BattleSocketController {
         } else {
             this.opponentId = opponentId;
             this.battleService = new BattleService(this.userId, this.key);
+            this.cardService = new CardService();
             await this.joinMatchRoom();
 
             //basic events for starting the game
@@ -206,7 +209,8 @@ class BattleSocketController {
     private async setReadyState(data: { deck: string }) {
         if ((<any>Object).values(Deck).includes(data.deck)) {
             const deck = Deck[data.deck as keyof typeof Deck];
-            const setPlayer = await this.battleService.setPlayer(deck);
+            const cards = await this.cardService.getAllFromDeck(deck);
+            const setPlayer = await this.battleService.setPlayer(deck, cards);
 
             if (typeof setPlayer === "boolean") {
                 await this.emitToOpponent("opponent-ready", "Your opponent is ready");

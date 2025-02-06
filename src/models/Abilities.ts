@@ -444,11 +444,14 @@ export interface AbilityRequirements {
 
 export interface IAbility {
     cardId: string;
-    cardHolderId?: string;
+    description: string;
     type: AbilityType;
     usageType: AbilityUsageType;
     subtype: AbilitySubtype;
     requirements?: AbilityRequirements;
+
+    //value of these is assigned by the player
+    cardHolderId?: string;
     targetPositions?: {
         self: Pos[],
         opponent: Pos[]

@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 class Mongo {
 
     readonly uri = process.env.FOB_MONGO_URI;
-    readonly inactivityTime = require("../game-rules.json").inactivityTime; //inactivity time converted to seconds
+    readonly inactivityTime = require("../game-rules.json").deleteInactivityTime / 1000; //seconds
 
     constructor() {
         this.connect();
