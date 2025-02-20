@@ -161,8 +161,8 @@ export class Abilities {
         if (this.battle!.timeLimit) {
             const player = this.battle!.player(playerId);
             const opponent = this.battle!.opponent(playerId);
-            player?.timeLeft!.endTurn();
-            opponent?.timeLeft!.startTurn();
+            player?.endTurn();
+            opponent?.startTurn();
         }
     }
 
@@ -172,8 +172,8 @@ export class Abilities {
         if (this.battle!.timeLimit) {
             const player = this.battle!.player(discardReq.player);
             const opponent = this.battle!.opponent(discardReq.player);
-            player?.timeLeft!.startTurn();
-            opponent?.timeLeft!.endTurn();
+            player?.startTurn();
+            opponent?.endTurn();
         }
     }
 

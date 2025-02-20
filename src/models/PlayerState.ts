@@ -34,32 +34,6 @@ export enum TurnStages {
  * [p2-Stormer]          ---               ---
  * */
 
-class TimeLeft {
-
-    @prop()
-    private turnStartedAt: number;
-
-    @prop()
-    private timeLeft: number;
-
-    constructor(timeLeft: number) {
-        this.turnStartedAt = 0;
-        this.timeLeft = timeLeft;
-    }
-
-    startTurn() {
-        this.turnStartedAt = new Date().getTime()
-    }
-
-    endTurn() {
-        this.timeLeft = new Date().getTime() - this.turnStartedAt;
-    }
-
-    hasTimeLeft(): boolean {
-        return this.timeLeft > 1000;
-    }
-}
-
 export class PlayerState {
 
     @prop()
@@ -86,8 +60,8 @@ export class PlayerState {
     @prop({type: String, _id: false }, PropType.MAP)
     readonly deployedCards: Map<Pos, Card>;
 
-    @prop({ _id: false })
-    readonly timeLeft?: TimeLeft; //milliseconds
+    @prop()
+    private timeLeft?: number; //milliseconds
 
     @prop()
     turnStage!: number;
@@ -110,7 +84,7 @@ export class PlayerState {
         this.turnStage = TurnStages.WAITING;
         this.drawsPerTurn = 0;
         if (timeLeft) {
-            this.timeLeft = new TimeLeft(timeLeft);
+            this.timeLeft = timeLeft;
         }
 
         this._battle = battle;
@@ -163,11 +137,13 @@ export class PlayerState {
         return false;
     }
 
-    drawCards() {
+    async drawCards(): Promise<string[] | undefined> {
         const drawnCards: string[] = [];
         const count = this._battle!.turn === 1 ? 1 : 2;
 
         if (this.drawsPerTurn < 1 && this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES) {
+            this.drawsPerTurn = 1;
+
             for (let i = 0; i < count; i++) {
                 const card = this.drawingDeck.pop();
                 if (card) {
@@ -175,51 +151,46 @@ export class PlayerState {
                     this.onHand.push(card);
                 }
             }
-            this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.draw, this._id).then(() => {
-                return drawnCards;
-            })
+
+            await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.draw, this._id);
+            return drawnCards;
         } else {
-            return [];
+            return undefined;
         }
     }
 
-    redrawCards(cardId?: string): string[] {
+    redrawCards(cardId?: string): string[] | undefined {
         const newCards: string[] = [];
 
-        if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES) {
-            if (this.drawsPerTurn < 2) {
-                const cardsToChange = cardId ? [cardId] : this.onHand.slice(0, 2);
+        if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES && this.drawsPerTurn === 1) {
+            const cardsToChange = cardId ? [cardId] : this.onHand.slice(0, 2);
 
-                if (cardId && (this.onHand.indexOf(cardId) !== 0 || this.onHand.indexOf(cardId) !== 1)) {
+            if (!(cardId && this.onHand.indexOf(cardId) > -1 && this.onHand.indexOf(cardId) < 2)) {
+                cardsToChange.forEach(card => {
+                    this.onHand.splice(this.onHand.indexOf(card), 1);
+                    this.drawingDeck.unshift(card);
+                    const newCard = this.drawingDeck.pop();
+                    if (newCard) {
+                        newCards.push(newCard);
+                    }
+                });
+
+                if (newCards.length > 0) {
+                    this.onHand.push(...newCards);
+                    this.drawsPerTurn = this.drawsPerTurn + 1;
                     return newCards;
-                } else {
-                    cardsToChange.forEach(card => {
-                        this.onHand.splice(this.onHand.indexOf(card), 1);
-                        this.drawingDeck.unshift(card);
-                        const newCard = this.drawingDeck.pop();
-                        if (newCard) {
-                            newCards.push(newCard);
-                        }
-                    });
                 }
-            } else {
-                return newCards;
             }
-
-            this.drawsPerTurn = this.drawsPerTurn + 1;
         }
-
-        return newCards;
     }
 
     resetBeforeTurn() {
-        this.turnStage = TurnStages.DRAW_AND_USE_PASSIVES;
         this.mana = this.manaCards.length;
         this.drawsPerTurn = 0;
     }
 
     advanceCards() {
-        if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES) {
+        if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES && this.drawsPerTurn > 0) {
             const attacker = this.deployedCards.get(Pos.attacker);
             if (attacker) {
                 this.deployedCards.set(Pos.stormer, attacker);
@@ -235,7 +206,12 @@ export class PlayerState {
                 this.deployedCards.set(Pos.supporter, defender);
             }
 
-            this.nextTurnStage();
+            if (!this.deployedCards.has(Pos.stormer)) {
+                this.turnStage = TurnStages.DEPLOY_AND_USE_ACTIONS;
+            } else {
+                this.nextTurnStage();
+            }
+
             return true;
         } else {
             return false;
@@ -449,6 +425,9 @@ export class PlayerState {
             case TurnStages.WAITING:
                 this.turnStage = TurnStages.DRAW_AND_USE_PASSIVES;
                 break;
+            case TurnStages.DRAW_AND_USE_PASSIVES:
+                this.turnStage = TurnStages.ADVANCE_AND_STORM;
+                break;
             case TurnStages.ADVANCE_AND_STORM:
                 this.turnStage = TurnStages.DEPLOY_AND_USE_ACTIONS;
                 break;
@@ -517,6 +496,24 @@ export class PlayerState {
     }
 
     //other functions
+
+    startTurn(timeLeft?: number) {
+        this.nextTurnStage();
+        if (timeLeft) {
+            this.timeLeft = timeLeft;
+        }
+    }
+
+    endTurn(timeLeft?: number) {
+        this.nextTurnStage();
+        if (timeLeft) {
+            this.timeLeft = timeLeft;
+        }
+    }
+
+    getTimeLeft(): number | undefined{
+        return this.timeLeft;
+    }
 
     get id() {
         return this._id

@@ -51,7 +51,9 @@ export class CardController {
 
     getByIds = async(req: Request, res: Response)=>  {
         try {
-            const cardIds = req.body;
+            const cardsQueryString = req.query.cards as string;
+            const cardIds = cardsQueryString ? cardsQueryString.split(",") : [];
+
 
             if (Array.isArray(cardIds) && cardIds.length > 0) {
                 const cards = await this.cardService.getByIds(cardIds);

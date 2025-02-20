@@ -9,7 +9,14 @@ const pubRedisClient = new Redis(serviceUri);
 const subRedisClient = pubRedisClient.duplicate();
 
 const clear = async () => {
-    await pubRedisClient.flushall();
+    const keyRegex = /^[A-Z0-9]{6}$/;
+    const allKeys = await pubRedisClient.keys("*");
+
+    const keysToDelete = allKeys.filter(key => !key.match(keyRegex));
+
+    if (keysToDelete.length > 0) {
+        await pubRedisClient.del(...keysToDelete);
+    }
 }
 
 pubRedisClient.on('connect', () => {

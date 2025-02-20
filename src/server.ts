@@ -6,7 +6,7 @@ import { auth } from "express-oauth2-jwt-bearer";
 import {Server, Socket} from "socket.io";
 import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
-import BattleSocketController from "./controllers/BattleSocketController";
+import BattleController from "./controllers/BattleController";
 import Mongo from "./Mongo";
 import NotificationService from "./services/NotificationService";
 import {FriendController} from "./controllers/FriendController";
@@ -49,7 +49,8 @@ io.on("connection", (socket: Socket) => {
 });
 
 io.of("/battle").on("connection", (socket: Socket) => {
-    new BattleSocketController(io.of("/battle"), socket);
+    const battleSocket = new BattleController(io.of("/battle"), socket);
+    battleSocket.init(socket);
 });
 
 export {io}
