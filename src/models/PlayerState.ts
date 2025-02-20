@@ -61,6 +61,9 @@ export class PlayerState {
     readonly deployedCards: Map<Pos, Card>;
 
     @prop()
+    private turnStartedAt?: number;
+
+    @prop()
     private timeLeft?: number; //milliseconds
 
     @prop()
@@ -497,17 +500,17 @@ export class PlayerState {
 
     //other functions
 
-    startTurn(timeLeft?: number) {
+    startTurn() {
         this.nextTurnStage();
-        if (timeLeft) {
-            this.timeLeft = timeLeft;
+        if (this.timeLeft) {
+            this.turnStartedAt = Date.now();
         }
     }
 
-    endTurn(timeLeft?: number) {
+    endTurn() {
         this.nextTurnStage();
-        if (timeLeft) {
-            this.timeLeft = timeLeft;
+        if (this.timeLeft && this.turnStartedAt) {
+            this.timeLeft = this.timeLeft - (Date.now() - this.turnStartedAt!);
         }
     }
 

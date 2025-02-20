@@ -44,11 +44,11 @@ export class BattleService {
         }
     }
 
-    startTurn = async (timeLeft?: number) => {
+    startTurn = async () => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match && await match.battle.startTurn(this.playerId, timeLeft)) {
+            if (match && await match.battle.startTurn(this.playerId)) {
                 await match.save();
                 return match.battle;
             }
@@ -57,11 +57,11 @@ export class BattleService {
         }
     }
 
-    endTurn = async (timeLeft?: number) => {
+    endTurn = async () => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match && match.battle.endTurn(this.playerId, timeLeft)) {
+            if (match && match.battle.endTurn(this.playerId)) {
                 await match.save();
                 return match.battle;
             }

@@ -38,7 +38,7 @@ export class Battle {
         this.abilities.setBattleRef(this);
     }
 
-    endTurn(playerId: string, timeLeft?: number): boolean {
+    endTurn(playerId: string): boolean {
         if (this.turnOfPlayer === playerId) {
             const players = Array.from(this.playerStates.keys());
 
@@ -55,7 +55,7 @@ export class Battle {
                     currentTurnPlayer.deployedCards.delete(Pos.stormer);
 
                     if (currentTurnPlayer) {
-                        currentTurnPlayer.endTurn(timeLeft);
+                        currentTurnPlayer.endTurn();
                     }
 
                     return true;
@@ -66,11 +66,11 @@ export class Battle {
         return false;
     }
 
-    async startTurn(playerId: string, timeLeft?: number): Promise<boolean> {
+    async startTurn(playerId: string): Promise<boolean> {
         const player = this.player(playerId);
 
         if (player && this.turnOfPlayer === playerId && player.turnStage === 0) {
-            player.startTurn(timeLeft);
+            player.startTurn();
             this.turn += 1;
             await this.abilities.applyEventDrivenAbilities(TriggerEvent.turn, player.id);
             return true;

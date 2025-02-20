@@ -6,9 +6,6 @@ import {Battle} from "../models/Battle";
 import {MatchStage} from "../models/Match";
 import {CardService} from "../services/CardService";
 import {MatchService} from "../services/MatchService";
-import {TurnStages} from "../models/PlayerState";
-
-const timeLeftSuffix = "-timeLeft";
 
 class BattleController {
 
@@ -20,9 +17,6 @@ class BattleController {
     private cardService!: CardService;
     private opponentId!: string;
 
-    private emitTimeLeft?: NodeJS.Timeout;
-    private timeLeft?: number;
-
     constructor(nsp: Namespace, socket: Socket) {
         this.nsp = nsp;
         this.userSocket = socket.id;
@@ -33,9 +27,6 @@ class BattleController {
     public init(socket: Socket) {
         this.setUpSocket(socket).then(match => {
             if (match) {
-                if (match.battle.timeLimit) {
-                    this.setUpTimer(match.battle);
-                }
                 this.nsp.to(socket.id).emit("connected", match);
             }
         });
@@ -76,18 +67,6 @@ class BattleController {
             socket.on("message", (data: { message: string, emitter: string }) => this.sendMessage(data));
 
             return await new MatchService().getByKey(this.key);
-        }
-    }
-
-    private async setUpTimer(battle: Battle) {
-        await this.initTimeLeft(battle);
-        const turnStage = battle.playerStates.get(this.userId)?.turnStage;
-
-        if (
-            battle.isTurnOfPlayer(this.userId) &&
-            (turnStage && turnStage != TurnStages.WAITING)
-        ) {
-            await this.initTimeLeftEmitter();
         }
     }
 
@@ -204,13 +183,9 @@ class BattleController {
     }
 
     private async startTurn() {
-        const battle = await this.battleService.startTurn(this.timeLeft);
+        const battle = await this.battleService.startTurn();
 
         if (battle) {
-            if (battle.timeLimit) {
-                await this.initTimeLeftEmitter();
-            }
-
             this.emitToSelf("turn-started", { battle: battle });
             await this.emitToOpponent("opponent-turn-started", { battle: battle });
         } else {
@@ -218,21 +193,12 @@ class BattleController {
         }
     }
 
-    private async endTurn(gameOver?: boolean) {
-        const battle = await this.battleService.endTurn(this.timeLeft);
+    private async endTurn() {
+        const battle = await this.battleService.endTurn();
 
         if (battle) {
-            if (battle.timeLimit && this.emitTimeLeft) {
-                await pubRedisClient.hset(this.key, this.userId + timeLeftSuffix, battle.playerStates.get(this.userId)!.getTimeLeft()!);
-                clearInterval(this.emitTimeLeft);
-            }
-
-            if (!gameOver) {
-                this.emitToSelf("turn-ended", null);
-                await this.emitToOpponent("opponent-turn-ended", null);
-            } else {
-                //TODO
-            }
+            this.emitToSelf("turn-ended", { battle: battle });
+            await this.emitToOpponent("opponent-turn-ended", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -276,12 +242,6 @@ class BattleController {
     public async leaveMatchRoom() {
         await pubRedisClient.hdel(this.key, this.userId);
         await pubRedisClient.del(this.userId);
-
-        if (this.emitTimeLeft && this.timeLeft) {
-            await pubRedisClient.hset(this.key, this.userId + timeLeftSuffix, this.timeLeft);
-            clearInterval(this.emitTimeLeft);
-        }
-
         await this.emitToOpponent("opponent-left", { message: "Your opponent has left the game" });
     }
 
@@ -318,39 +278,6 @@ class BattleController {
         }
 
         return data;
-    }
-
-    private async initTimeLeft(battle: Battle) {
-        if (battle.timeLimit) {
-            const prevTimeLeftString = await pubRedisClient.hget(this.key, this.userId + timeLeftSuffix);
-
-            if (prevTimeLeftString && !isNaN(parseInt(prevTimeLeftString))) {
-                this.timeLeft = parseInt(prevTimeLeftString);
-            }
-            else {
-                const timeLeft = battle.playerStates.get(this.userId)?.getTimeLeft();
-                this.timeLeft = timeLeft ? timeLeft : battle.timeLimit;
-            }
-        }
-    }
-
-    private async initTimeLeftEmitter() {
-        if (this.emitTimeLeft) {
-            clearInterval(this.emitTimeLeft);
-            this.timeLeft = undefined;
-        }
-
-        this.emitTimeLeft = setInterval(async () => {
-            this.timeLeft = this.timeLeft! - 1000 > 0 ? this.timeLeft! - 1000 : 0;
-
-            if (this.timeLeft <= 0 && this.emitTimeLeft) {
-                clearInterval(this.emitTimeLeft);
-                await this.endTurn(true);
-            }
-
-            await this.emitToSelf("time-left", { timeLeft: this.timeLeft });
-            await this.emitToOpponent("opponent-time-left", { timeLeft: this.timeLeft });
-        }, 1000);
     }
 }
 
