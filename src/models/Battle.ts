@@ -108,13 +108,6 @@ export class Battle {
         }
     }
 
-    hideOnHandCards(playerId: string) {
-        const player = this.player(playerId);
-        if (player) {
-            player.onHand.fill(placeholder);
-        }
-    }
-
     isTurnOfPlayer(playerId: string) {
         return this.turnOfPlayer === playerId;
     }

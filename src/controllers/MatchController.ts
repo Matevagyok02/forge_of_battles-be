@@ -141,27 +141,27 @@ export class MatchController {
         try {
             const userId = getUserId(req);
             const key = req.query.key;
-            const hasUnfinishedMatch = await this.matchService.hasUnfinishedMatch(userId);
 
-            if (hasUnfinishedMatch) {
-                res.status(409).json({ message: "You are already in a match" });
-                return;
-            } else {
-                if (typeof key === "string") {
-                    const hostPlayerId = await this.matchService.join(userId, key);
+                if (userId && typeof key === "string") {
+                    const hasUnfinishedMatch = await this.matchService.hasUnfinishedMatch(userId, key);
 
-                    if (hostPlayerId) {
-                        if (hostPlayerId !== userId) {
-                            await this.notificationService.acceptedMatchInvite(hostPlayerId, key);
-                        }
-                        res.status(200).json({ message: "You have successfully joined the game" });
+                    if (hasUnfinishedMatch) {
+                        res.status(409).json({ message: "You are already in a match" });
                     } else {
-                        res.status(403).json({ message: "You cannot join this game" });
+                        const hostPlayerId = await this.matchService.join(userId, key);
+
+                        if (hostPlayerId) {
+                            if (hostPlayerId !== userId) {
+                                await this.notificationService.acceptedMatchInvite(hostPlayerId, key);
+                            }
+                            res.status(200).json({ message: "You have successfully joined the game" });
+                        } else {
+                            res.status(403).json({ message: "You cannot join this game" });
+                        }
                     }
                 } else {
                     res.status(400).json({ message: "'key' param is missing" });
                 }
-            }
         } catch (e: any) {
             handleServerError(e, res);
         }

@@ -1,4 +1,4 @@
-import {getModelForClass, modelOptions, post, prop} from "@typegoose/typegoose";
+import {getModelForClass, modelOptions, prop} from "@typegoose/typegoose";
 import {Battle} from "./Battle";
 
 export enum MatchStage {

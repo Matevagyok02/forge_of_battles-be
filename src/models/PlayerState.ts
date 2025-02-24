@@ -166,23 +166,36 @@ export class PlayerState {
         const newCards: string[] = [];
 
         if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES && this.drawsPerTurn === 1) {
-            const cardsToChange = cardId ? [cardId] : this.onHand.slice(0, 2);
+            if (cardId) {
+                if (this.onHand.slice(-2).includes(cardId)) {
+                    const index = this.onHand.lastIndexOf(cardId);
+                    this.onHand.splice(index, 1);
 
-            if (!(cardId && this.onHand.indexOf(cardId) > -1 && this.onHand.indexOf(cardId) < 2)) {
+                    this.drawingDeck.unshift(cardId);
+                    const newCard = this.drawingDeck.pop();
+                    if (newCard) {
+                        newCards.push(newCard);
+                    }
+                }
+            } else {
+                const cardsToChange = this.onHand.slice(-2);
+
                 cardsToChange.forEach(card => {
-                    this.onHand.splice(this.onHand.indexOf(card), 1);
+                    const index = this.onHand.lastIndexOf(card);
+                    this.onHand.splice(index, 1);
+
                     this.drawingDeck.unshift(card);
                     const newCard = this.drawingDeck.pop();
                     if (newCard) {
                         newCards.push(newCard);
                     }
                 });
+            }
 
-                if (newCards.length > 0) {
-                    this.onHand.push(...newCards);
-                    this.drawsPerTurn = this.drawsPerTurn + 1;
-                    return newCards;
-                }
+            if (newCards.length > 0) {
+                this.onHand.push(...newCards);
+                this.drawsPerTurn = this.drawsPerTurn + 1;
+                return newCards;
             }
         }
     }
@@ -221,39 +234,39 @@ export class PlayerState {
         }
     }
 
-    storm(actionArgs?: RequirementArgs, posToAttack?: Pos.frontLiner | Pos.vanguard) {
+    async storm(actionArgs?: RequirementArgs, posToAttack?: Pos.frontLiner | Pos.vanguard) {
         if (this.deployedCards.has(Pos.stormer)) {
             const opponent = this._battle!.opponent(this._id);
             const attacker = this.deployedCards.get(Pos.stormer)
 
             if (opponent && attacker) {
-                this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.storm, this._id).then(() => {
-                        if (posToAttack) {
-                            const cardToAttack = opponent.deployedCards.get(posToAttack);
+                await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.storm, this._id);
 
-                            if (cardToAttack) {
-                                if (attacker.attack >= cardToAttack.defence) {
-                                    opponent.addToCasualties(posToAttack);
-                                }
-                            }
-                        } else {
-                            const defender = opponent.deployedCards.get(Pos.defender);
-                            const damage = defender?.defence ?
-                                attacker.attack - defender.defence : attacker.attack;
+                if (posToAttack) {
+                    const cardToAttack = opponent.deployedCards.get(posToAttack);
 
-                            opponent.receiveDamage(damage);
+                    if (cardToAttack) {
+                        if (attacker.attack >= cardToAttack.defence) {
+                            await opponent.addToCasualties(posToAttack);
                         }
-                }).then(() => {
-                    if (attacker.actionAbility) {
-                        this._battle!.abilities.addAbility(this._id, attacker.actionAbility, actionArgs);
                     }
-                    this.clearCard(Pos.stormer);
-                }).then(() => {
-                    if (this.turnStage === TurnStages.ADVANCE_AND_STORM) {
-                        this.nextTurnStage();
-                    }
-                    return true;
-                });
+                } else {
+                    const defender = opponent.deployedCards.get(Pos.defender);
+                    const damage = defender?.defence ?
+                        attacker.attack - defender.defence : attacker.attack;
+
+                    opponent.receiveDamage(damage);
+                }
+
+                if (attacker.actionAbility) {
+                    this._battle!.abilities.addAbility(this._id, attacker.actionAbility, actionArgs);
+                }
+                this.clearCard(Pos.stormer);
+
+                if (this.turnStage === TurnStages.ADVANCE_AND_STORM) {
+                    this.nextTurnStage();
+                }
+                return true;
             }
         }
         return false;
@@ -352,13 +365,13 @@ export class PlayerState {
 
     //helper functions
 
-    addToCasualties(pos: Pos) {
+    async addToCasualties(pos: Pos) {
         const card = this.deployedCards.get(pos);
         if (!!card) {
             this.removeBasicAndEventDrivenAbilities(card.passiveAbility);
             this.deployedCards.delete(pos);
             this.casualties.push(card.id);
-            this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.cardDeath, this.id);
+            await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.cardDeath, this.id);
         }
     }
 
@@ -514,9 +527,9 @@ export class PlayerState {
         }
     }
 
-    getTimeLeft(): number | undefined{
-        return this.timeLeft;
-    }
+    // getTimeLeft(): number | undefined{
+    //     return this.timeLeft;
+    // }
 
     get id() {
         return this._id

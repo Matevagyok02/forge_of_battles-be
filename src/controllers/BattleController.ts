@@ -3,9 +3,12 @@ import {Namespace, Socket} from "socket.io";
 import {busyStatusIndicator, pubRedisClient} from "../redis";
 import {Deck} from "../models/Card";
 import {Battle} from "../models/Battle";
-import {MatchStage} from "../models/Match";
+import {Match, MatchStage} from "../models/Match";
 import {CardService} from "../services/CardService";
 import {MatchService} from "../services/MatchService";
+import {PlayerState} from "../models/PlayerState";
+
+type BattleData = Match | { battle: Battle } | { message: string } | {};
 
 class BattleController {
 
@@ -27,7 +30,7 @@ class BattleController {
     public init(socket: Socket) {
         this.setUpSocket(socket).then(match => {
             if (match) {
-                this.nsp.to(socket.id).emit("connected", match);
+                this.emitToSelf("connected", match);
             }
         });
     }
@@ -78,11 +81,9 @@ class BattleController {
 
         if (battle) {
             if (object?.discardForced) {
-                this.emitToSelf("opponent-forced-to-discard", { battle: battle });
-                await this.emitToOpponent("forced-to-discard", { battle: battle });
+                await this.emitToPlayers("forced-to-discard", { battle: battle });
             } else {
-                this.emitToSelf("used-action", { battle: battle });
-                await this.emitToOpponent("opponent-used-action", { battle: battle });
+                await this.emitToPlayers("used-action", { battle: battle });
             }
         } else {
             this.emitErrorMessage();
@@ -92,8 +93,7 @@ class BattleController {
     private async usePassive(data: { pos: string, args?: RawRequirementArgs }) {
         const battle = await this.battleService.usePassive(data.pos, data.args);
         if (battle) {
-            this.emitToSelf("used-passive", { battle: battle });
-            await this.emitToOpponent("opponent-used-passive", { battle: battle });
+            await this.emitToPlayers("used-passive", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -102,8 +102,7 @@ class BattleController {
     private async deploy(data: { cardId: string, useAsMana?: string[] }) {
         const battle = await this.battleService.deploy(data.cardId, data.useAsMana);
         if (battle) {
-            this.emitToSelf("deployed", { battle: battle });
-            await this.emitToOpponent("opponent-deployed", { battle: battle });
+            await this.emitToPlayers("deployed", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -112,8 +111,7 @@ class BattleController {
     private async storm(data: { posToAttack?: string, args?: RawRequirementArgs }) {
         const battle = await this.battleService.storm(data.posToAttack, data.args);
         if (battle) {
-            this.emitToSelf("stormed", { battle: battle });
-            await this.emitToOpponent("opponent-stormed", { battle: battle });
+            await this.emitToPlayers("stormed", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -132,8 +130,7 @@ class BattleController {
         const battle = await this.battleService.discard(data.cardToDiscard);
 
         if (battle) {
-            await this.emitToOpponent("opponent-discarded", { battle: battle });
-            this.emitToSelf("discarded", { battle: battle });
+            await this.emitToPlayers("discarded", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -142,8 +139,7 @@ class BattleController {
     private async advanceCards() {
         const battle = await this.battleService.advanceCards();
         if (battle) {
-            this.emitToSelf("advanced", { battle: battle });
-            await this.emitToOpponent("opponent-advanced", { battle: battle });
+            await this.emitToPlayers("advanced", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -152,8 +148,7 @@ class BattleController {
     private async addStormerToMana() {
         const add = await this.battleService.addStormerToMana();
         if (add) {
-            this.emitToSelf("added-mana", {});
-            await this.emitToOpponent("opponent-added-mana", {});
+            await this.emitToPlayers("added-mana", { battle: add });
         } else {
             this.emitErrorMessage();
         }
@@ -162,8 +157,7 @@ class BattleController {
     private async moveToFrontLine() {
         const move = await this.battleService.moveToFrontLine();
         if (move) {
-            this.emitToSelf("moved-to-front", {});
-            await this.emitToOpponent("opponent-moved-to-front", {});
+            await this.emitToPlayers("moved-to-front", { battle: move });
         } else {
             this.emitErrorMessage();
         }
@@ -175,8 +169,7 @@ class BattleController {
         const battle = await this.battleService.drawCards();
 
         if (battle) {
-            this.emitToSelf("drawn", { battle: battle });
-            await this.emitToOpponent("opponent-drawn", { battle: battle });
+            await this.emitToPlayers("turn-ended", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -186,8 +179,7 @@ class BattleController {
         const battle = await this.battleService.startTurn();
 
         if (battle) {
-            this.emitToSelf("turn-started", { battle: battle });
-            await this.emitToOpponent("opponent-turn-started", { battle: battle });
+            await this.emitToPlayers("turn-started", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -197,8 +189,7 @@ class BattleController {
         const battle = await this.battleService.endTurn();
 
         if (battle) {
-            this.emitToSelf("turn-ended", { battle: battle });
-            await this.emitToOpponent("opponent-turn-ended", { battle: battle });
+            await this.emitToPlayers("turn-ended", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -213,7 +204,8 @@ class BattleController {
             const setPlayer = await this.battleService.setPlayer(deck, cards);
 
             if (typeof setPlayer === "boolean") {
-                await this.emitToOpponent("opponent-ready", "Your opponent is ready");
+                this.emitToSelf("ready", "You are ready");
+                await this.emitToOpponent("opponent-ready", { message: "Your opponent is ready" });
 
                 if (setPlayer) {
                     await pubRedisClient.hset(this.key, "stage", MatchStage.started);
@@ -252,32 +244,42 @@ class BattleController {
     //event emitting
 
     private emitToSelf(ev: string, data: any) {
-        data = this.cleanBattleObj(data);
-
-        this.nsp.to(this.userSocket).emit(ev, data);
+        this.nsp.to(this.userSocket).emit(ev, this.cleanBattleObj(data, this.opponentId));
     }
 
-    private async emitToOpponent(ev: string, data: any) {
+    private async emitToOpponent(ev: string, data: BattleData) {
         const opponentSocketId = await pubRedisClient.hget(this.key, this.opponentId);
-        data = this.cleanBattleObj(data, true);
 
         if (opponentSocketId) {
-            this.nsp.to(opponentSocketId).emit(ev, data);
+            this.nsp.to(opponentSocketId).emit(ev, this.cleanBattleObj(data, this.userId));
         }
+    }
+
+    private async emitToPlayers(ev: string, data: BattleData) {
+        await this.emitToSelf(ev, data);
+        await this.emitToOpponent("opponent-" + ev, data);
     }
 
     private emitErrorMessage() {
         this.emitToSelf("error", { message: "Completing your previous action has failed" });
     }
 
-    private cleanBattleObj(data: any, forSelf?: boolean) {
-        if (data?.battle && data?.battle instanceof Battle) {
-            (data.battle as Battle).clearRefs();
-            (data.battle as Battle).hideOnHandCards(forSelf ? this.opponentId : this.userId);
-            (data.battle as Battle).hideDrawingDeckCards();
-        }
+    private cleanBattleObj(data: any, hideCardsOf: string) {
+        if (data?.battle) {
+            data.battle.clearRefs();
+            data.battle.hideDrawingDeckCards();
 
-        return data;
+            const newData = JSON.parse(JSON.stringify(data));
+
+            if (hideCardsOf in newData.battle.playerStates) {
+                const playerState = newData.battle.playerStates[hideCardsOf];
+                playerState.onHand.fill("card");
+            }
+
+            return newData;
+        } else {
+            return data;
+        }
     }
 }
 

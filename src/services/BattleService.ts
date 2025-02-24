@@ -151,9 +151,9 @@ export class BattleService {
 
                     const position = Pos[posToAttack as keyof typeof Pos];
                     if (position === Pos.frontLiner || position === Pos.vanguard) {
-                        storm = player.storm(args, position);
+                        storm = await player.storm(args, position);
                     } else {
-                        storm = player.storm(args);
+                        storm = await player.storm(args);
                     }
 
                     if (storm) {
@@ -162,10 +162,8 @@ export class BattleService {
                     }
                 }
             }
-            return null;
         } catch (e: any) {
             console.log(e);
-            return null;
         }
     }
 
@@ -246,20 +244,20 @@ export class BattleService {
         }
     }
 
-    getBattle = async () => {
-        try {
-            const match = await MatchModel.findOne(this.filter).lean();
-
-            if (match && match.battle) {
-                return match.battle;
-            } else {
-                return null;
-            }
-        } catch (e: any) {
-            console.log(e);
-            return null;
-        }
-    }
+    // getBattle = async () => {
+    //     try {
+    //         const match = await MatchModel.findOne(this.filter).lean();
+    //
+    //         if (match && match.battle) {
+    //             return match.battle;
+    //         } else {
+    //             return null;
+    //         }
+    //     } catch (e: any) {
+    //         console.log(e);
+    //         return null;
+    //     }
+    // }
 
     drawCards = async (): Promise<Battle | undefined> => {
         try {
@@ -285,7 +283,7 @@ export class BattleService {
             if (match && this.isPlayerOnTurn(match)) {
                 const drawnCards = setRefs(match).battle.player(this.playerId)?.redrawCards(cardId);
 
-                if (drawnCards && drawnCards?.length > 0) {
+                if (drawnCards && drawnCards.length > 0) {
                     await match.save();
                     return match.battle;
                 }
