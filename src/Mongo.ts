@@ -24,7 +24,7 @@ class Mongo {
                 .connect(this.uri)
                 .then(() => {
                     console.log('MongoDB connected');
-                    //TODO: uncomment this -> this.createIndex();
+                    this.createIndex();
                 })
                 .catch(() => {
                     console.error('MongoDB connection failed...');
