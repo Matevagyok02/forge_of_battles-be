@@ -483,7 +483,7 @@ export class PlayerState {
     }
 
     useMana(amount: number, cards?: string[]): boolean {
-        if (cards && this.canUseCardsAsMana(cards) + this.mana >= amount) {
+        if (cards && cards.length > 0 && this.canUseCardsAsMana(cards) + this.mana >= amount) {
             this.mana = this.mana - (amount - this.useCardsAsMana(cards));
             return true;
         }
