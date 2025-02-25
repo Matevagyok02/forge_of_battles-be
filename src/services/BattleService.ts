@@ -1,7 +1,8 @@
-import {Match, MatchModel} from "../models/Match";
+import {Match, MatchModel, MatchStage, setRefs} from "../models/Match";
 import {Card, CardModel, Deck} from "../models/Card";
 import {CardWithPieces, Pos} from "../models/PlayerState";
 import {RequirementArgs} from "../models/Abilities";
+import {Battle} from "../models/Battle";
 
 export class BattleService {
 
@@ -27,6 +28,10 @@ export class BattleService {
 
             if (match) {
                 match.battle.initPlayerState(this.playerId, deck, cards);
+                if (match.battle.hasStarted()) {
+                    match.setStage(MatchStage.started);
+                }
+
                 await match.save();
 
                 return match.battle.hasStarted();
@@ -43,15 +48,12 @@ export class BattleService {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
-            if (match && match.battle.startTurn(this.playerId)) {
+            if (match && await match.battle.startTurn(this.playerId)) {
                 await match.save();
                 return match.battle;
-            } else {
-                return null;
             }
         } catch (e: any) {
             console.log(e);
-            return null;
         }
     }
 
@@ -62,12 +64,9 @@ export class BattleService {
             if (match && match.battle.endTurn(this.playerId)) {
                 await match.save();
                 return match.battle;
-            } else {
-                return null;
             }
         } catch (e: any) {
             console.log(e);
-            return null;
         }
     }
 
@@ -152,9 +151,9 @@ export class BattleService {
 
                     const position = Pos[posToAttack as keyof typeof Pos];
                     if (position === Pos.frontLiner || position === Pos.vanguard) {
-                        storm = player.storm(args, position);
+                        storm = await player.storm(args, position);
                     } else {
-                        storm = player.storm(args);
+                        storm = await player.storm(args);
                     }
 
                     if (storm) {
@@ -163,10 +162,8 @@ export class BattleService {
                     }
                 }
             }
-            return null;
         } catch (e: any) {
             console.log(e);
-            return null;
         }
     }
 
@@ -242,41 +239,40 @@ export class BattleService {
                     }
                 }
             }
-            return null;
         } catch (e: any) {
             console.log(e);
-            return null;
         }
     }
 
-    getBattle = async () => {
-        try {
-            const match = await MatchModel.findOne(this.filter).lean();
+    // getBattle = async () => {
+    //     try {
+    //         const match = await MatchModel.findOne(this.filter).lean();
+    //
+    //         if (match && match.battle) {
+    //             return match.battle;
+    //         } else {
+    //             return null;
+    //         }
+    //     } catch (e: any) {
+    //         console.log(e);
+    //         return null;
+    //     }
+    // }
 
-            if (match && match.battle) {
-                return match.battle;
-            } else {
-                return null;
-            }
-        } catch (e: any) {
-            console.log(e);
-            return null;
-        }
-    }
-
-    drawCards = async () => {
+    drawCards = async (): Promise<Battle | undefined> => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
+            const player = setRefs(match).battle.player(this.playerId);
 
-            if (match && this.isPlayerOnTurn(match)) {
-                const drawnCards = match.battle.player(this.playerId)?.drawCards();
+            if (match && this.isPlayerOnTurn(match) && player) {
+                const drawnCards = await player.drawCards();
                 await match.save();
-                return drawnCards;
+                if (drawnCards) {
+                    return match.battle;
+                }
             }
-            return null;
         } catch (e: any) {
             console.log(e);
-            return null;
         }
     }
 
@@ -285,14 +281,15 @@ export class BattleService {
             const match = await MatchModel.findOne(this.filter).exec();
 
             if (match && this.isPlayerOnTurn(match)) {
-                const drawnCards = match.battle.player(this.playerId)?.redrawCards(cardId);
-                await match.save();
-                return drawnCards;
+                const drawnCards = setRefs(match).battle.player(this.playerId)?.redrawCards(cardId);
+
+                if (drawnCards && drawnCards.length > 0) {
+                    await match.save();
+                    return match.battle;
+                }
             }
-            return null;
         } catch (e: any) {
             console.log(e);
-            return null;
         }
     }
 

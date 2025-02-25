@@ -502,6 +502,7 @@ export class AbilityService {
 
     private static dealDamageEqualToZombies = (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
+        const damageAmount = this.getValue("damage", ability.args);
         let zombieCardsAmount = 0;
 
         if (player) {
@@ -509,7 +510,7 @@ export class AbilityService {
                if (card.id === ability.cardId)
                    zombieCardsAmount++;
             });
-            this.dealDamage(battle, ability, zombieCardsAmount)
+            this.dealDamage(battle, ability, zombieCardsAmount * (damageAmount ? damageAmount : 1));
         }
     }
 
@@ -615,15 +616,8 @@ export class AbilityService {
         const player = battle.player(ability.cardHolderId!);
 
         if (player) {
-            AbilityService.dealDamage(battle, ability, player.manaCards.length);
-        }
-    }
-
-    private static deal2DamageEqualToOpponentMana = (battle: Battle, ability: InstantAbility) => {
-        const opponent = battle.opponent(ability.cardHolderId!);
-
-        if (opponent) {
-            AbilityService.dealDamage(battle, ability, opponent.manaCards.length * 2);
+            const damageAmount = this.getValue("damage", ability.args);
+            AbilityService.dealDamage(battle, ability, player.manaCards.length * damageAmount ? damageAmount : 1);
         }
     }
 
@@ -774,14 +768,15 @@ export class AbilityService {
         [ "heal", this.heal ],
         [ "kill", this.kill ],
         [ "raise", this.raise ],
+        [ "draw", this.draw ],
+        [ "damage", this.dealDamage ],
         [ "forceDiscard", this.forceDiscard ],
         [ "forceSacrifice", this.forceSacrifice ],
-        [ "returnToDrawingDeck" , this.returnToDrawingDeck ],
+        [ "returnToDrawingDeck", this.returnToDrawingDeck ],
         [ "returnToHandAfterStormOrKill", this.returnToHandAfterStormOrKill ],
         [ "dealDamageEqualToCardsInHand", this.dealDamageEqualToCardsInHand ],
         [ "addToManaAfterStorm", this.addToManaAfterStorm ],
         [ "switchCards", this.switchCards ],
-        [ "returnToDrawingDeck", this.returnToDrawingDeck ],
         [ "stealFromHand", this.stealFromHand ],
         [ "stealTopResource", this.stealTopResource ],
         [ "removeMana", this.removeMana],
@@ -824,7 +819,6 @@ export class AbilityService {
         [ "dealLowestValueDamage", this.dealLowestValueDamage ],
         [ "returnToOwnerHand", this.returnToOwnerHand ],
         [ "killIfCostLowerThan3", this.killIfCostLowerThan3 ],
-        [ "deal2DamageEqualToOpponentMana", this.deal2DamageEqualToOpponentMana ],
         [ "dealDamageEqualToMana", this.dealDamageEqualToMana ],
         [ "dealDamageIf2CardsOnTrack", this.dealDamageIf2CardsOnTrack ],
         [ "stormWithSacrificedCard", this.stormWithSacrificedCard ]

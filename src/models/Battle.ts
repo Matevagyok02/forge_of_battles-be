@@ -31,9 +31,9 @@ export class Battle {
     }
 
     setRefProps() {
-        for (const [key, value] of this.playerStates.entries()) {
+        this.playerStates.forEach((value, key) => {
             value.setBattleRefAndIds(this, key);
-        }
+        });
 
         this.abilities.setBattleRef(this);
     }
@@ -54,26 +54,25 @@ export class Battle {
                     nextTurnPlayer.resetBeforeTurn();
                     currentTurnPlayer.deployedCards.delete(Pos.stormer);
 
-                    if (currentTurnPlayer.timeLeft) {
-                        currentTurnPlayer.timeLeft.endTurn();
+                    if (currentTurnPlayer) {
+                        currentTurnPlayer.endTurn();
                     }
-                    return (nextTurnPlayer.timeLeft && !nextTurnPlayer.timeLeft.hasTimeLeft()) || nextTurnPlayer.drawingDeck.length < 1;
+
+                    return true;
+                    //return (nextTurnPlayer.timeLeft && !nextTurnPlayer.timeLeft.hasTimeLeft()) || nextTurnPlayer.drawingDeck.length < 1;
                 }
             }
         }
         return false;
     }
 
-    startTurn(playerId: string): boolean {
+    async startTurn(playerId: string): Promise<boolean> {
         const player = this.player(playerId);
 
-        if (player && this.turnOfPlayer === playerId) {
-            if (player.timeLeft) {
-                player.timeLeft.startTurn();
-            }
+        if (player && this.turnOfPlayer === playerId && player.turnStage === 0) {
+            player.startTurn();
             this.turn += 1;
-            player.nextTurnStage();
-            this.abilities.applyEventDrivenAbilities(TriggerEvent.turn, player.id);
+            await this.abilities.applyEventDrivenAbilities(TriggerEvent.turn, player.id);
             return true;
         } else {
             return false;
@@ -106,13 +105,6 @@ export class Battle {
         }
         if (this.playerStates) {
             this.playerStates.forEach(player => player.clearBattleRef());
-        }
-    }
-
-    hideOnHandCards(playerId: string) {
-        const player = this.player(playerId);
-        if (player) {
-            player.onHand.fill(placeholder);
         }
     }
 

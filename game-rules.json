@@ -3,5 +3,5 @@
   "keyCharacterPool": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
   "penaltyTimeout": 900000,
   "abandonInactivityTime": 300000,
-  "deleteInactivityTime": 600000
+  "deleteInactivityTime": 360000
 }

@@ -63,8 +63,8 @@ export const MatchModel = getModelForClass(
     {schemaOptions: {collection: 'matches'}}
 );
 
-MatchModel.schema.post("findOne", (match: Match) => {
-    if (match && match.battle.hasStarted()) {
-        match.battle.setRefProps();
-    }
-});
+export const setRefs = (matchDoc: any) => {
+    const match = matchDoc as unknown as Match;
+    match.battle.setRefProps();
+    return match;
+}

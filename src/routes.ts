@@ -57,8 +57,8 @@ matchRouter.delete(`/decline`, matchController.decline);
 matchRouter.delete(`/abandon`, matchController.abandon);
 matchRouter.delete(`/leave`, matchController.leave);
 
-cardsRouter.post(`/add`, cardController.getByIds);
-cardsRouter.post(``, cardController.add);
+cardsRouter.post(`/add`, cardController.add);
+cardsRouter.get(``, cardController.getByIds);
 
 router.use(`/user`, userRouter);
 router.use(`/friend`, friendRouter);

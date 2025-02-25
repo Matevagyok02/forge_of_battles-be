@@ -55,9 +55,10 @@ export class MatchService {
         }
     }
 
-    async hasUnfinishedMatch(userId: string) {
+    async hasUnfinishedMatch(userId: string, key: string) {
         try {
             const filter = {
+                key: { $ne: key },
                 player2Id: userId,
                 $or: [{ stage: MatchStage.preparing }, { stage: MatchStage.started }]
             }
