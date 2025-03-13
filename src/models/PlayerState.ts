@@ -1,4 +1,4 @@
-import {prop, PropType} from "@typegoose/typegoose";
+import {prop} from "@typegoose/typegoose";
 import {Card, Deck} from "./Card";
 import {shuffleArray} from "../utils";
 import {Battle} from "./Battle";
@@ -57,7 +57,7 @@ export class PlayerState {
     @prop({type: [String]})
     readonly manaCards: string[];
 
-    @prop({type: String, _id: false }, PropType.MAP)
+    @prop({type: Card, _id: false })
     readonly deployedCards: Map<Pos, Card>;
 
     @prop()
@@ -83,7 +83,7 @@ export class PlayerState {
         this.mana = 0;
         this.manaCards = [];
         this.bonusHealth = [];
-        this.deployedCards = new Map<Pos, Card>();
+        this.deployedCards = new Map();
         this.turnStage = TurnStages.WAITING;
         this.drawsPerTurn = 0;
         if (timeLeft) {
@@ -95,27 +95,30 @@ export class PlayerState {
     }
 
     //game moves
-    //TODO: some methods will probably need an OR condition, so they can be executed anytime (not just in the specified turn stage)
 
     moveToFrontLine(card?: Card) {
         if (this.turnStage === TurnStages.ADVANCE_AND_STORM || !!card) {
             const cardToMove = card ? card : this.deployedCards.get(Pos.stormer);
-            if (cardToMove) {
-                if (!this.deployedCards.has(Pos.frontLiner)) {
-                    this.deployedCards.set(Pos.frontLiner, cardToMove);
-                    this.deployedCards.delete(Pos.stormer);
-                    return true;
-                } else if (
-                    !this.deployedCards.has(Pos.vanguard) &&
-                    !this._battle!.opponent(this._id)?.deployedCards.has(Pos.vanguard)
-                ) {
-                    this.deployedCards.set(Pos.vanguard, cardToMove);
-                    this.deployedCards.delete(Pos.stormer);
-                    if (card === undefined) {
-                        this.nextTurnStage();
-                    }
-                    return true;
+            let targetPos: Pos.frontLiner | Pos.vanguard;
+
+            if (!this.deployedCards.has(Pos.frontLiner)) {
+                targetPos = Pos.frontLiner;
+            } else if (
+                !this.deployedCards.has(Pos.vanguard) &&
+                !this._battle!.opponent(this._id)?.deployedCards.has(Pos.vanguard)
+            ) {
+                targetPos = Pos.vanguard;
+            } else {
+                return false;
+            }
+
+            if (cardToMove && targetPos) {
+                this.deployedCards.set(targetPos, cardToMove);
+                this.deployedCards.delete(Pos.stormer);
+                if (!card) {
+                    this.nextTurnStage();
                 }
+                return true;
             }
         }
         return false;
@@ -206,20 +209,23 @@ export class PlayerState {
     }
 
     advanceCards() {
-        if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES && this.drawsPerTurn > 0) {
+        if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES) {
             const attacker = this.deployedCards.get(Pos.attacker);
             if (attacker) {
                 this.deployedCards.set(Pos.stormer, attacker);
+                this.deployedCards.delete(Pos.attacker);
             }
 
             const supporter = this.deployedCards.get(Pos.supporter);
             if (supporter) {
                 this.deployedCards.set(Pos.attacker, supporter);
+                this.deployedCards.delete(Pos.supporter);
             }
 
             const defender = this.deployedCards.get(Pos.defender);
             if (defender) {
                 this.deployedCards.set(Pos.supporter, defender);
+                this.deployedCards.delete(Pos.defender);
             }
 
             if (!this.deployedCards.has(Pos.stormer)) {
@@ -259,7 +265,7 @@ export class PlayerState {
                 }
 
                 if (attacker.actionAbility) {
-                    this._battle!.abilities.addAbility(this._id, attacker.actionAbility, actionArgs);
+                    await this._battle!.abilities.addAbility(this._id, attacker.actionAbility, actionArgs);
                 }
                 this.clearCard(Pos.stormer);
 
@@ -272,8 +278,12 @@ export class PlayerState {
         return false;
     }
 
-    useAction(card: Card, args?: RequirementArgs, forced?: boolean) {
-        if ((this.turnStage === TurnStages.DEPLOY_AND_USE_ACTIONS || forced) && card.actionAbility) {
+    async useAction(card: Card, args?: RequirementArgs, forced?: boolean) {
+        if (
+            (this.turnStage === TurnStages.DEPLOY_AND_USE_ACTIONS || forced) &&
+            card.actionAbility &&
+            this.onHand.indexOf(card.id) > -1
+        ) {
             if (forced) {
                 if (!card.actionAbility.requirements) {
                     card.actionAbility.requirements = {};
@@ -281,25 +291,27 @@ export class PlayerState {
                 card.actionAbility.requirements.mana = 0;
             }
 
-            this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.useAction, this._id).then(() => {
-                return this._battle!.abilities.addAbility(this._id, card.actionAbility!, args);
-            });
+            this.onHand.splice(this.onHand.indexOf(card.id), 1);
+            this.casualties.push(card.id);
+
+            await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.useAction, this._id);
+            return await this._battle!.abilities.addAbility(this._id, card.actionAbility!, args);
         } else {
             return false;
         }
     }
 
-    usePassive(pos: Pos, args?: RequirementArgs) {
+    async usePassive(pos: Pos, args?: RequirementArgs) {
         const card = this.deployedCards.get(pos);
 
         if (card) {
-            return this._battle!.abilities.addAbility(this._id, card.passiveAbility, args);
+            return await this._battle!.abilities.addAbility(this._id, card.passiveAbility, args);
         } else {
             return false;
         }
     }
 
-    deploy(card: Card, useAsMana?: string[], forced?: boolean) {
+    async deploy(card: Card, useAsMana?: string[], forced?: boolean, onPos?: Pos) {
         if (this.turnStage === TurnStages.DEPLOY_AND_USE_ACTIONS || forced) {
             const index = this.onHand.indexOf(card.id);
             let cost = this._battle!.abilities.applyCostModifiers(this._id, card.cost, TriggerEvent.deploy);
@@ -312,18 +324,21 @@ export class PlayerState {
 
             if (
                 index > -1 &&
-                !this.canDeploy() &&
+                this.canDeploy() &&
                 cost === 0
             ) {
-                this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.deploy,this._id).then(() => {
-                    this.deployedCards.set(Pos.defender, card);
-                    this.onHand.splice(index, 1);
-                    return true;
-                });
-            } else {
-                return false;
+                if (!card.passiveAbility.requirements && this._battle) {
+                    await this._battle.abilities.addAbility(this._id, card.passiveAbility);
+                }
+
+                card.addTempId();
+                await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.deploy, this._id);
+                this.deployedCards.set(forced && onPos ? onPos : Pos.defender, card);
+                this.onHand.splice(this.onHand.indexOf(card.id), 1);
+                return true;
             }
         }
+        return false;
     }
 
     discard(cardToDiscard: string[] | Pos) {
@@ -387,17 +402,20 @@ export class PlayerState {
     }
 
     receiveDamage(damage: number) {
-        if (damage < (this.drawingDeck.length + this.bonusHealth.length)) {
-            for (let i = 0; i < damage; i++) {
-                const card = this.bonusHealth.length > 0 ?
-                    this.bonusHealth.pop() : this.drawingDeck.pop();
+        for (let i = 0; i < damage; i++) {
+            let casualty: string | undefined;
 
-                if (card) {
-                    this.casualties.push(card);
-                }
+            if (this.bonusHealth.length > 0) {
+                casualty = this.bonusHealth.pop();
+            } else {
+                casualty = this.drawingDeck.pop();
             }
-        } else {
-            this.casualties.length = 0;
+
+            if (casualty) {
+                this.casualties.push(casualty);
+            } else {
+                break;
+            }
         }
     }
 
@@ -523,13 +541,17 @@ export class PlayerState {
     endTurn() {
         this.nextTurnStage();
         if (this.timeLeft && this.turnStartedAt) {
-            this.timeLeft = this.timeLeft - (Date.now() - this.turnStartedAt!);
+            this.timeLeft = this.timeLeft - (Date.now() - this.turnStartedAt);
         }
     }
 
-    // getTimeLeft(): number | undefined{
-    //     return this.timeLeft;
-    // }
+    hasTimeLeft(): boolean {
+        if (this.timeLeft && this.turnStartedAt) {
+            return this.timeLeft - (Date.now() - this.turnStartedAt) > 999;
+        } else {
+            return true;
+        }
+    }
 
     get id() {
         return this._id

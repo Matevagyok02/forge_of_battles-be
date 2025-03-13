@@ -2,14 +2,21 @@ import {Match, MatchModel, MatchStage} from "../models/Match";
 import {generateKey} from "../utils";
 import {pubRedisClient} from "../redis";
 
+export const RANDOM_MATCH_QUEUE_KEY = "RANDOM_MATCH_QUEUE";
+const REDIS_LOCK_KEY = "LOCK";
+const RANDOM_MATCH_TIME_LIMIT = 900000;
+
 export class MatchService {
 
     async isInGame(userId: string): Promise<boolean> {
         try {
-            const filter = {$or: [
+            const filter = {
+                $or: [
                     { player1Id: userId},
                     { player2Id: userId}
-                ]};
+                ],
+                stage: { $ne: MatchStage.finished }
+            };
 
             return await MatchModel.countDocuments(filter).lean() > 0;
         } catch (e: any) {
@@ -23,8 +30,8 @@ export class MatchService {
             const filter = {
                 player2Id: userId,
                 $or: [
-                    {stage: MatchStage.preparing},
-                    {stage: MatchStage.started}
+                    { stage: MatchStage.preparing },
+                    { stage: MatchStage.started }
                 ]
             }
             return await MatchModel.findOne(filter).sort({ createdAt: -1 }).exec()
@@ -44,9 +51,23 @@ export class MatchService {
     }
 
     async create(player1Id: string, player2Id?: string, timeLimit?: number) {
+        await this.leaveQueue(player1Id);
+
         try {
             const key = await this.getKey();
             const match = new Match(key, false, player1Id, player2Id, timeLimit);
+            await MatchModel.create(match);
+            return match;
+        } catch (e: any) {
+            console.log(e);
+            return null;
+        }
+    }
+
+    async createRandomMatch(player1Id: string, player2Id: string) {
+        try {
+            const key = await this.getKey();
+            const match = new Match(key, true, player1Id, player2Id, RANDOM_MATCH_TIME_LIMIT);
             await MatchModel.create(match);
             return match;
         } catch (e: any) {
@@ -71,6 +92,8 @@ export class MatchService {
     }
 
     async join(userId: string, key: string) {
+        await this.leaveQueue(userId);
+
         try {
             const match = await MatchModel.findOne({key}).exec();
 
@@ -109,6 +132,58 @@ export class MatchService {
         }
     }
 
+    async joinQueue(userId: string): Promise<{ joined: boolean, match?: { key: string, opponentId: string } }> {
+        const acquireLock = await pubRedisClient.setnx(REDIS_LOCK_KEY, 1);
+
+        if (acquireLock) {
+            try {
+                const queue = await pubRedisClient.smembers(RANDOM_MATCH_QUEUE_KEY);
+
+                if (queue.length > 0) {
+                    const opponentId = queue[0];
+                    await pubRedisClient.srem(RANDOM_MATCH_QUEUE_KEY, opponentId);
+
+                    const match = await this.createRandomMatch(opponentId, userId);
+
+                    if (match && opponentId) {
+                        return { joined: true, match: { key: match.key, opponentId } };
+                    } else {
+                        return { joined: false };
+                    }
+                } else {
+                    await pubRedisClient.sadd(RANDOM_MATCH_QUEUE_KEY, userId);
+                    return { joined: true };
+                }
+            } catch (e: any) {
+                console.log(e);
+                return { joined: false };
+            } finally {
+                await pubRedisClient.del(REDIS_LOCK_KEY);
+            }
+        } else {
+            return { joined: false };
+        }
+    }
+
+    async leaveQueue(userId: string) {
+        try {
+            await pubRedisClient.srem(RANDOM_MATCH_QUEUE_KEY, userId);
+            return true;
+        } catch (e: any) {
+            console.log(e);
+            return false;
+        }
+    }
+
+    async isInQueue(userId: string) {
+        try {
+            return await pubRedisClient.sismember(RANDOM_MATCH_QUEUE_KEY, userId);
+        } catch (e: any) {
+            console.log(e);
+            return false;
+        }
+    }
+
     async leave(userId: string) {
         try {
             const filter = {
@@ -134,7 +209,11 @@ export class MatchService {
 
     async getLastCreatedMatch(userId: string) {
         try {
-            return await MatchModel.findOne({player1Id: userId}).sort({createdAt: -1}).exec();
+            return await MatchModel.findOne({
+                player1Id: userId,
+                stage: { $ne: MatchStage.finished },
+                randomMatch: false
+            }).sort({createdAt: -1}).exec();
         } catch (e: any) {
             console.log(e);
         }

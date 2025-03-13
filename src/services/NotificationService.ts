@@ -83,6 +83,15 @@ class NotificationService {
             }
         })
     }
+
+    notifyPlayersInQueue = async (users: string[], matchKey: string) => {
+        const sockets = await pubRedisClient.mget(users);
+        sockets.forEach(socket => {
+            if (socket) {
+                io.to(socket).emit("random-match-found", matchKey);
+            }
+        });
+    }
 }
 
 export default NotificationService;

@@ -11,6 +11,7 @@ import Mongo from "./Mongo";
 import NotificationService from "./services/NotificationService";
 import {FriendController} from "./controllers/FriendController";
 import {FriendService} from "./services/FriendService";
+import {RANDOM_MATCH_QUEUE_KEY} from "./services/MatchService";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
@@ -41,6 +42,8 @@ io.on("connection", (socket: Socket) => {
 
     socket.on("disconnect", async () => {
         await pubRedisClient.del(userId);
+        await pubRedisClient.srem(RANDOM_MATCH_QUEUE_KEY, userId);
+
         await new FriendController(
             new FriendService(),
             new NotificationService()

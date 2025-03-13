@@ -6,10 +6,10 @@ import {Card} from "../models/Card";
 
 export class AbilityService {
 
-    static executeAbility(battle: Battle, ability: InstantAbility) {
+    static async executeAbility(battle: Battle, ability: InstantAbility) {
         const abilityFunction = this.abilities.get(ability.name);
         if (abilityFunction) {
-            abilityFunction(battle, ability);
+            await abilityFunction(battle, ability);
         }
     }
 
@@ -98,31 +98,29 @@ export class AbilityService {
         }
     }
 
-    private static deployCardFromDrawingDeck = (battle: Battle, ability: InstantAbility) => {
+    private static deployCardFromDrawingDeck = async (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
         const cardId = player?.drawingDeck[player?.drawingDeck.length -1];
 
         if (cardId && player) {
-            BattleService.getCardById(cardId).then(card => {
-                if (card) {
-                    player.drawingDeck.pop();
-                    player.deploy(card, undefined, true);
-                }
-            });
+            const card = await BattleService.getCardById(cardId);
+            if (card) {
+                player.drawingDeck.pop();
+                await player.deploy(card, undefined, true);
+            }
         }
     }
 
-    private static deployCasualtyFree = (battle: Battle, ability: InstantAbility) => {
+    private static deployCasualtyFree = async (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
         const cardId = player?.drawingDeck[player?.drawingDeck.length -1];
 
         if (cardId && player) {
-            BattleService.getCardById(cardId).then(card => {
-                if (card) {
-                    player.casualties.pop();
-                    player.deploy(card, undefined, true);
-                }
-            });
+            const card = await BattleService.getCardById(cardId);
+            if (card) {
+                player.casualties.pop();
+                await player.deploy(card, undefined, true);
+            }
         }
     }
 
@@ -135,7 +133,7 @@ export class AbilityService {
         }
     }
 
-    private static berserkerKill = (battle: Battle, ability: InstantAbility) => {
+    private static berserkerKill = async (battle: Battle, ability: InstantAbility) => {
         const opponent = battle.opponent(ability.cardHolderId!);
         const targetPos = ability.targetPositions?.opponent[0];
 
@@ -150,7 +148,7 @@ export class AbilityService {
         if (opponent && targetPos) {
             const targetCard = opponent?.deployedCards.get(targetPos);
             if (targetCard && targetCard.defence < berserkerDamage) {
-                opponent.addToCasualties(targetPos);
+                await opponent.addToCasualties(targetPos);
             }
         }
     }
@@ -239,7 +237,7 @@ export class AbilityService {
         }
     }
 
-    private static setNewStormer = (player: PlayerState, nextStormer: Card) => {
+    private static setNewStormer = async (player: PlayerState, nextStormer: Card) => {
         const currentStormer = player.deployedCards.get(Pos.stormer);
 
         if (nextStormer && currentStormer) {
@@ -250,7 +248,7 @@ export class AbilityService {
                 nextStormer.passiveAbility.usageType === AbilityUsageType.basic
                 || nextStormer.passiveAbility.usageType === AbilityUsageType.eventDriven
             ) {
-                player.battle!.abilities.addAbility(player.id, nextStormer.passiveAbility);
+                await player.battle!.abilities.addAbility(player.id, nextStormer.passiveAbility);
             }
         }
     }
@@ -368,16 +366,15 @@ export class AbilityService {
         }
     }
 
-    private static deployCardForFree = (battle: Battle, ability: InstantAbility) => {
+    private static deployCardForFree = async (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
         const target = ability.targetCards ? ability.targetCards[0] : undefined;
 
         if (player && target) {
-            BattleService.getCardById(target).then(card => {
-                if (card) {
-                    player.deploy(card, undefined, true);
-                }
-            });
+            const card = await BattleService.getCardById(target);
+            if (card) {
+                await player.deploy(card, undefined, true);
+            }
         }
     }
 
@@ -394,18 +391,17 @@ export class AbilityService {
         }
 }
 
-    private static stealTopResourceAndDeploy = (battle: Battle, ability: InstantAbility) => {
+    private static stealTopResourceAndDeploy = async (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
         const opponent = battle.opponent(ability.cardHolderId!);
 
         if (player && opponent) {
             const cardId = opponent.drawingDeck.pop();
             if (cardId) {
-                BattleService.getCardById(cardId).then(card => {
-                    if (card) {
-                        player.deploy(card, undefined, true);
-                    }
-                });
+                const card = await BattleService.getCardById(cardId);
+                if (card) {
+                    await player.deploy(card, undefined, true);
+                }
             }
         }
     }
@@ -617,11 +613,11 @@ export class AbilityService {
 
         if (player) {
             const damageAmount = this.getValue("damage", ability.args);
-            AbilityService.dealDamage(battle, ability, player.manaCards.length * damageAmount ? damageAmount : 1);
+            AbilityService.dealDamage(battle, ability, damageAmount ? player.manaCards.length *  damageAmount : 1);
         }
     }
 
-    private static killIfCostLowerThan3 = (battle: Battle, ability: InstantAbility) => {
+    private static killIfCostLowerThan3 = async (battle: Battle, ability: InstantAbility) => {
         const opponent = battle.opponent(ability.cardHolderId!);
         const target = ability.targetPositions?.opponent[0];
 
@@ -629,7 +625,7 @@ export class AbilityService {
             const card = opponent.deployedCards.get(target);
 
             if (card &&card.cost <= 3) {
-                opponent.addToCasualties(target);
+                await opponent.addToCasualties(target);
             }
         }
     }

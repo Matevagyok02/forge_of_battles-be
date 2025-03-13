@@ -4,7 +4,8 @@ import {Battle} from "./Battle";
 export enum MatchStage {
     pending = "pending",
     preparing = "preparing",
-    started = "started"
+    started = "started",
+    finished = "finished"
 }
 
 @modelOptions({ schemaOptions: { timestamps: true } })
@@ -31,6 +32,15 @@ export class Match {
     @prop({ _id: false })
     readonly updatedAt!: Date;
 
+    constructor(key: string, randomMatch: boolean, player1Id: string, player2Id?: string, timeLimit?: number) {
+        this.battle = new Battle(player2Id, timeLimit);
+        this.key = key;
+        this.player1Id = player1Id;
+        this.player2Id = player2Id ? player2Id : "";
+        this.randomMatch = randomMatch;
+        this.stage = randomMatch ? MatchStage.preparing : MatchStage.pending;
+    }
+
     setPlayer2Id(player2Id: string) {
         this.battle.setTurnOfPlayer(player2Id);
         this.player2Id = player2Id;
@@ -44,17 +54,22 @@ export class Match {
         return this.stage;
     }
 
-    setStage(stage: MatchStage) {
-        this.stage = stage;
+    isFinished() {
+        if (this.stage === MatchStage.finished) {
+            return true;
+        } else {
+            const hasEnded = this.battle.hasEnded();
+            if (hasEnded) {
+                this.stage = MatchStage.finished;
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 
-    constructor(key: string, randomMatch: boolean, player1Id: string, player2Id?: string, timeLimit?: number) {
-        this.battle = new Battle(player2Id, timeLimit);
-        this.key = key;
-        this.player1Id = player1Id;
-        this.player2Id = player2Id ? player2Id : "";
-        this.randomMatch = randomMatch;
-        this.stage = MatchStage.pending;
+    setStage(stage: MatchStage) {
+        this.stage = stage;
     }
 }
 

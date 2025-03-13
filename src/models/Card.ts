@@ -1,5 +1,6 @@
 import {getModelForClass, modelOptions, prop, Severity} from "@typegoose/typegoose";
 import {Ability} from "./Abilities";
+import {generateKey} from "../utils";
 
 @modelOptions({ options: { allowMixed: Severity.ALLOW } })
 export class Card {
@@ -9,6 +10,9 @@ export class Card {
 
     @prop({required: true})
     readonly name!: string;
+
+    @prop()
+    private tempId?: string;
 
     @prop()
     readonly deck!: Deck;
@@ -30,6 +34,10 @@ export class Card {
 
     @prop({ _id: false })
     actionAbility?: Ability;
+
+    addTempId() {
+        this.tempId = generateKey();
+    }
 }
 
 export const CardModel = getModelForClass(

@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import {RANDOM_MATCH_QUEUE_KEY} from "./services/MatchService";
 
 let connected = false;
 const busyStatusIndicator = "!";
@@ -12,7 +13,7 @@ const clear = async () => {
     const keyRegex = /^[A-Z0-9]{6}$/;
     const allKeys = await pubRedisClient.keys("*");
 
-    const keysToDelete = allKeys.filter(key => !key.match(keyRegex));
+    const keysToDelete = allKeys.filter(key => !key.match(keyRegex) && key !== RANDOM_MATCH_QUEUE_KEY);
 
     if (keysToDelete.length > 0) {
         await pubRedisClient.del(...keysToDelete);

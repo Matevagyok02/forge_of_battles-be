@@ -83,6 +83,20 @@ export class Battle {
         return this.playerStates.size === 2;
     }
 
+    hasEnded(): boolean {
+        const hasPlayerLost = (player: PlayerState) => {
+            return player.bonusHealth.length + player.drawingDeck.length < 1 || !player.hasTimeLeft() ;
+        }
+
+        const results: boolean[] = [];
+
+        this.playerStates.forEach(player => {
+           results.push(hasPlayerLost(player));
+        });
+
+        return results.includes(true);
+    }
+
     initPlayerState(playerId: string, deckId: Deck, cards: CardWithPieces[]) {
         if (this.playerStates.size < 2) {
             this.playerStates.set(

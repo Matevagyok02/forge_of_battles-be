@@ -27,7 +27,7 @@ export class Abilities {
         this.battle = undefined;
     }
 
-    addAbility(cardHolderId: string, ability: Ability, args?: RequirementArgs): boolean {
+    async addAbility(cardHolderId: string, ability: Ability, args?: RequirementArgs): Promise<boolean> {
         ability.cardHolderId = cardHolderId;
 
         if (ability.requirements) {
@@ -38,6 +38,7 @@ export class Abilities {
                 ability = resolvedAbility;
             }
         }
+
         if (ability.cardHolderId) {
             if (ability.usageType === AbilityUsageType.eventDriven) {
                 const eventDrivenAbility = ability as EventDrivenAbility;
@@ -54,7 +55,7 @@ export class Abilities {
                     this.activatedAbilities.push(ability as AttributeModifierAbility);
                 }
             } else if (ability.usageType === AbilityUsageType.instant) {
-                AbilityService.executeAbility(this.battle!, ability as InstantAbility);
+                await AbilityService.executeAbility(this.battle!, ability as InstantAbility);
             }
         }
         return true;
@@ -80,12 +81,12 @@ export class Abilities {
             a.usageType === AbilityUsageType.eventDriven
         );
 
-        eventDrivenAbilities.forEach(a => {
+        for (const a of eventDrivenAbilities) {
             const ability = a as EventDrivenAbility;
             if (ability.event.includes(event) && ability.triggeredBy === triggeredBy) {
-                AbilityService.executeAbility(this.battle!, ability as InstantAbility);
+                await AbilityService.executeAbility(this.battle!, ability as InstantAbility);
             }
-        });
+        }
     }
 
     clearTurnBasedAttributeModifiers() {
