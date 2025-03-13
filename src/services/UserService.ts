@@ -37,7 +37,7 @@ export class UserService {
 
     async getUserByUserId(userId: string): Promise<User | null> {
         try {
-            return await UserModel.findOne({userId}, basicParams).lean();
+            return await UserModel.findOne({userId}).lean();
         } catch (error: any) {
             console.error(error);
             return null;

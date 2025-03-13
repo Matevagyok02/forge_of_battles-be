@@ -6,9 +6,8 @@ import {Battle} from "../models/Battle";
 import {Match, MatchStage} from "../models/Match";
 import {CardService} from "../services/CardService";
 import {MatchService} from "../services/MatchService";
-import {PlayerState} from "../models/PlayerState";
 
-type BattleData = Match | { battle: Battle } | { message: string } | {};
+type BattleData = Match | { battle: Battle } | { message: string };
 
 class BattleController {
 
@@ -99,8 +98,8 @@ class BattleController {
         }
     }
 
-    private async deploy(data: { cardId: string, useAsMana?: string[] }) {
-        const battle = await this.battleService.deploy(data.cardId, data.useAsMana);
+    private async deploy(data: { cardId: string, sacrificeCards?: string[] }) {
+        const battle = await this.battleService.deploy(data.cardId, data.sacrificeCards);
         if (battle) {
             await this.emitToPlayers("deployed", { battle: battle });
         } else {
@@ -109,7 +108,7 @@ class BattleController {
     }
 
     private async storm(data: { posToAttack?: string, args?: RawRequirementArgs }) {
-        const battle = await this.battleService.storm(data.posToAttack, data.args);
+        const battle = await this.battleService.storm(data?.posToAttack, data?.args);
         if (battle) {
             await this.emitToPlayers("stormed", { battle: battle });
         } else {
@@ -180,8 +179,6 @@ class BattleController {
 
         if (battle) {
             await this.emitToPlayers("turn-started", { battle: battle });
-        } else {
-            this.emitErrorMessage();
         }
     }
 
@@ -258,6 +255,8 @@ class BattleController {
     private async emitToPlayers(ev: string, data: BattleData) {
         await this.emitToSelf(ev, data);
         await this.emitToOpponent("opponent-" + ev, data);
+
+        await this.emitSignalIfFinished(data);
     }
 
     private emitErrorMessage() {
@@ -279,6 +278,20 @@ class BattleController {
             return newData;
         } else {
             return data;
+        }
+    }
+
+    private async emitSignalIfFinished(data: any) {
+        if (data?.battle) {
+            const battle = data.battle as Battle;
+
+            if (battle.hasEnded()) {
+                const finishedMatch = await this.battleService.finishMatch();
+                if (finishedMatch) {
+                    await this.emitToSelf("match-ended", finishedMatch);
+                    await this.emitToOpponent("match-ended", finishedMatch);
+                }
+            }
         }
     }
 }

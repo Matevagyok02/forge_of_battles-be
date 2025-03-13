@@ -90,7 +90,7 @@ export class MatchController {
         }
     }
 
-    getLastCreated = async(req: Request, res: Response)=> {
+    getLastCreated = async (req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
             const match = await this.matchService.getLastCreatedMatch(userId as string);
@@ -106,7 +106,7 @@ export class MatchController {
         }
     }
 
-    getActive = async(req: Request, res: Response)=> {
+    getActive = async (req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
             const match = await this.matchService.getActiveMatchByUser(userId as string);
@@ -115,14 +115,19 @@ export class MatchController {
                 match.battle.clearRefs();
                 res.status(200).json(match);
             } else {
-                res.status(404).json({message: "No active match was found"});
+                const inQueue = await this.matchService.isInQueue(userId);
+                if (inQueue) {
+                    res.status(200).json({message: "You are inside the random match queue"});
+                } else {
+                    res.status(404).json({message: "No active match was found"});
+                }
             }
         } catch (e: any) {
             handleServerError(e, res);
         }
     }
 
-    getByKey = async(req: Request, res: Response)=> {
+    getByKey = async (req: Request, res: Response)=> {
         try {
             const match = await this.matchService.getByKey(req.query.key as string);
 
@@ -137,12 +142,12 @@ export class MatchController {
         }
     }
 
-    join = async(req: Request, res: Response)=> {
+    join = async (req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
             const key = req.query.key;
 
-                if (userId && typeof key === "string") {
+                if (typeof key === "string") {
                     const hasUnfinishedMatch = await this.matchService.hasUnfinishedMatch(userId, key);
 
                     if (hasUnfinishedMatch) {
@@ -167,7 +172,7 @@ export class MatchController {
         }
     }
 
-    leave = async(req: Request, res: Response) => {
+    leave = async (req: Request, res: Response) => {
         try {
             const userId = getUserId(req);
             const leaveMatch = await this.matchService.leave(userId);
@@ -182,7 +187,49 @@ export class MatchController {
         }
     }
 
-    decline = async(req: Request, res: Response) => {
+    joinRandom = async (req: Request, res: Response)=> {
+        try {
+            const userId = getUserId(req);
+
+            if (!await this.matchService.isInGame(userId)) {
+                const join = await this.matchService.joinQueue(userId);
+
+                if (join.joined) {
+                    res.status(201).json({ message: "You have successfully joined the queue" });
+
+                    if (join.match) {
+                        await this.notificationService.notifyPlayersInQueue(
+                            [userId, join.match.opponentId],
+                            join.match.key
+                        );
+                    }
+                } else {
+                    res.status(202).json({ message: "The server is busy, try again later" });
+                }
+            } else {
+                res.status(409).json({ message: "You are already in a match" });
+            }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
+    leaveRandom = async (req: Request, res: Response) => {
+        try {
+            const userId = getUserId(req);
+            const leaveQueue = await this.matchService.leaveQueue(userId);
+
+            if (leaveQueue) {
+                res.status(200).json({ message: "You have successfully left the queue" });
+            } else {
+                res.status(403).json({ message: "You are not in the queue" });
+            }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
+    decline = async (req: Request, res: Response) => {
         try {
             const key = req.query.key;
             const userId = getUserId(req);

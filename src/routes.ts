@@ -56,6 +56,8 @@ matchRouter.put(`/join`, matchController.join);
 matchRouter.delete(`/decline`, matchController.decline);
 matchRouter.delete(`/abandon`, matchController.abandon);
 matchRouter.delete(`/leave`, matchController.leave);
+matchRouter.put(`/random`, matchController.joinRandom);
+matchRouter.delete(`/leave-random`, matchController.leaveRandom);
 
 cardsRouter.post(`/add`, cardController.add);
 cardsRouter.get(``, cardController.getByIds);
