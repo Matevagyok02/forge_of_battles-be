@@ -10,12 +10,18 @@ export class MatchService {
 
     async isInGame(userId: string): Promise<boolean> {
         try {
+            const matchStageOptions = {
+                $nin: [MatchStage.finished, MatchStage.abandoned]
+            }
+
             const filter = {
-                $or: [
-                    { player1Id: userId},
-                    { player2Id: userId}
-                ],
-                stage: { $ne: MatchStage.finished }
+                $or: [{
+                    player1Id: userId,
+                    stage: matchStageOptions
+                }, {
+                    player2Id: userId,
+                    stage: matchStageOptions
+                }]
             };
 
             return await MatchModel.countDocuments(filter).lean() > 0;
@@ -27,13 +33,20 @@ export class MatchService {
 
     async getActiveMatchByUser(userId: string) {
         try {
+            const matchStageOptions = [
+                { stage: MatchStage.preparing },
+                { stage: MatchStage.started }
+            ]
             const filter = {
-                player2Id: userId,
-                $or: [
-                    { stage: MatchStage.preparing },
-                    { stage: MatchStage.started }
-                ]
+                $or: [{
+                    player2Id: userId,
+                    $or: matchStageOptions
+                }, {
+                    player1Id: userId,
+                    $or: matchStageOptions
+                }]
             }
+
             return await MatchModel.findOne(filter).sort({ createdAt: -1 }).exec()
         } catch (e: any) {
             console.log(e);
@@ -186,13 +199,36 @@ export class MatchService {
 
     async leave(userId: string) {
         try {
+            const matchStageOptions = [
+                { stage: MatchStage.preparing },
+                { stage: MatchStage.started },
+                { stage: MatchStage.abandoned }
+            ]
             const filter = {
-                player2Id: userId,
-                $or: [{ stage: MatchStage.preparing }, { stage: MatchStage.started }]
+                $or: [{
+                    player2Id: userId,
+                    $or: matchStageOptions
+                }, {
+                    player1Id: userId,
+                    randomMatch: true,
+                    $or: matchStageOptions
+                }]
             }
 
-            const deleteMatch = await MatchModel.deleteOne(filter).lean();
-            return deleteMatch.deletedCount > 0;
+            const match = await MatchModel.findOne(filter).exec();
+
+            if (match) {
+                if (match.getMatchStage() === MatchStage.abandoned) {
+                    await this.delete(match.key);
+                    return true;
+                } else {
+                    match.setStage(MatchStage.abandoned);
+                    await match.save();
+                    return true;
+                }
+            } else {
+                return false;
+            }
         } catch (e: any) {
             console.log(e);
             return false;
@@ -201,7 +237,8 @@ export class MatchService {
 
     async delete(key: string) {
         try {
-            await MatchModel.deleteOne({key}).lean();
+            await  pubRedisClient.del(key);
+            return await MatchModel.deleteOne({key}).lean();
         } catch (e: any) {
             console.log(e);
         }
@@ -232,13 +269,18 @@ export class MatchService {
             if (
                 match &&
                 (
-                    match.getMatchStage() === MatchStage.pending ||
-                    match.getPlayer2Id() === "" ||
+                    (
+                        match.getMatchStage() === MatchStage.pending ||
+                        match.getPlayer2Id() === ""
+                    )
+                     ||
                     (
                         ((match.getMatchStage() === MatchStage.preparing && match.battle.playerStates.has(userId)) ||
                             (match.getMatchStage() === MatchStage.started && !match.battle.isTurnOfPlayer(userId)))
                         &&
                         Date.now() - match.updatedAt.getTime() > inactivityTimeReq
+                    ) || (
+                        !await pubRedisClient.hget(key, match.getPlayer2Id())
                     )
                 )
             ) {

@@ -27,49 +27,44 @@ class BattleController {
     }
 
     public init(socket: Socket) {
-        this.setUpSocket(socket).then(match => {
+        new MatchService().getByKey(this.key).then(match => {
             if (match) {
-                this.emitToSelf("connected", match);
+                this.opponentId = match.player1Id === this.userId ? match.getPlayer2Id() : match.player1Id;
+                this.battleService = new BattleService(this.userId, match.key);
+                this.cardService = new CardService();
+                this.setUpSocket(socket);
+                this.joinMatchRoom().then(() =>
+                    this.emitToSelf("connected", match)
+                );
+            } else {
+                this.emitToSelf("connection-fail", { message: "Failed to connect" });
             }
         });
     }
 
-    private async setUpSocket(socket: Socket) {
-        const opponentId = await BattleService.getOpponentId(this.userId, this.key);
+    private setUpSocket(socket: Socket) {
+        //basic events for starting the game
+        socket.on("ready", async (data: { deck: string }) => await this.setReadyState(data));
+        socket.on("disconnect", async () => await this.leaveMatchRoom());
 
-        if (!opponentId) {
-            this.emitToSelf("connection-fail", { message: "Failed to connect" });
-        } else {
-            this.opponentId = opponentId;
-            this.battleService = new BattleService(this.userId, this.key);
-            this.cardService = new CardService();
-            await this.joinMatchRoom();
+        //basic game events
+        socket.on("start-turn", async () => await this.startTurn());
+        socket.on("end-turn", async () => await this.endTurn());
 
-            //basic events for starting the game
-            socket.on("ready", async (data: { deck: string }) => await this.setReadyState(data));
-            socket.on("disconnect", async () => await this.leaveMatchRoom());
+        //advanced game events
+        socket.on("draw", async () => await this.drawCards());
+        socket.on("redraw", async (data: { cardId: string }) => await this.redrawCards(data));
+        socket.on("advance", async () => await this.advanceCards());
+        socket.on("deploy", async (data: { cardId: string, sacrificeCards?: string[]}) => await this.deploy(data));
+        socket.on("storm", async (data: { posToAttack?: string, args?: RawRequirementArgs }) => await this.storm(data));
+        socket.on("use-action", async (data: { cardId: string, args?: RawRequirementArgs })=> this.useAction(data));
+        socket.on("use-passive", async (data: { pos: string, args?: RawRequirementArgs })=> this.usePassive(data));
+        socket.on("add-mana", async () => await this.addStormerToMana());
+        socket.on("move-to-front", async () => await this.moveToFrontLine());
+        socket.on("discard", async (data: { cardToDiscard: string[] | string }) => await this.discard(data));
 
-            //basic game events
-            socket.on("start-turn", async () => await this.startTurn());
-            socket.on("end-turn", async () => await this.endTurn());
-
-            //advanced game events
-            socket.on("draw", async () => await this.drawCards());
-            socket.on("redraw", async (data: { cardId: string }) => await this.redrawCards(data));
-            socket.on("advance", async () => await this.advanceCards());
-            socket.on("deploy", async (data: { cardId: string, sacrificeCards?: string[]}) => await this.deploy(data));
-            socket.on("storm", async (data: { posToAttack?: string, args?: RawRequirementArgs }) => await this.storm(data));
-            socket.on("use-action", async (data: { cardId: string, args?: RawRequirementArgs })=> this.useAction(data));
-            socket.on("use-passive", async (data: { pos: string, args?: RawRequirementArgs })=> this.usePassive(data));
-            socket.on("add-mana", async () => await this.addStormerToMana());
-            socket.on("move-to-front", async () => await this.moveToFrontLine());
-            socket.on("discard", async (data: { cardToDiscard: string[] | string }) => await this.discard(data));
-
-            //other events
-            socket.on("message", (data: { message: string, emitter: string }) => this.sendMessage(data));
-
-            return await new MatchService().getByKey(this.key);
-        }
+        //other events
+        socket.on("message", (data: { message: string, emitter: string }) => this.sendMessage(data));
     }
 
     //basic game operations
@@ -196,15 +191,15 @@ class BattleController {
 
     private async setReadyState(data: { deck: string }) {
         if ((<any>Object).values(Deck).includes(data.deck)) {
-            const deck = Deck[data.deck as keyof typeof Deck];
+            const deck = data.deck as Deck;
             const cards = await this.cardService.getAllFromDeck(deck);
             const setPlayer = await this.battleService.setPlayer(deck, cards);
 
-            if (typeof setPlayer === "boolean") {
-                this.emitToSelf("ready", "You are ready");
+            if (setPlayer) {
+                this.emitToSelf("ready", { message: "You are ready" });
                 await this.emitToOpponent("opponent-ready", { message: "Your opponent is ready" });
 
-                if (setPlayer) {
+                if (setPlayer.matchStarted) {
                     await pubRedisClient.hset(this.key, "stage", MatchStage.started);
                 }
             } else {
@@ -240,7 +235,7 @@ class BattleController {
 
     //event emitting
 
-    private emitToSelf(ev: string, data: any) {
+    private emitToSelf(ev: string, data: BattleData) {
         this.nsp.to(this.userSocket).emit(ev, this.cleanBattleObj(data, this.opponentId));
     }
 
