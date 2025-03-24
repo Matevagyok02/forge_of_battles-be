@@ -52,8 +52,11 @@ io.on("connection", (socket: Socket) => {
 });
 
 io.of("/battle").on("connection", (socket: Socket) => {
-    const battleSocket = new BattleController(io.of("/battle"), socket);
-    battleSocket.init(socket);
+
+    socket.on("register", async () => {
+        const battleSocket = new BattleController(io.of("/battle"), socket);
+        battleSocket.init(socket);
+    });
 });
 
 export {io}

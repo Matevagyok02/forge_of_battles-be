@@ -25,7 +25,7 @@ export class BattleService {
         }
     }
 
-    setPlayer = async (deck: Deck, cards: CardWithPieces[]): Promise<boolean | null> => {
+    setPlayer = async (deck: Deck, cards: CardWithPieces[]): Promise<{ matchStarted: boolean } | null> => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
 
@@ -37,7 +37,7 @@ export class BattleService {
 
                 await match.save();
 
-                return match.battle.hasStarted();
+                return { matchStarted: match.battle.hasStarted() };
             } else {
                 return null;
             }
@@ -379,6 +379,8 @@ export class BattleService {
                 ]
             };
             let match = await MatchModel.findOne(filter, "player1Id player2Id").exec();
+
+            console.log(match?.key);
 
             if (match) {
                 const player1Id = match.player1Id;

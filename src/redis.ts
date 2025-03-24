@@ -13,19 +13,20 @@ const clear = async () => {
     const keyRegex = /^[A-Z0-9]{6}$/;
     const allKeys = await pubRedisClient.keys("*");
 
-    const keysToDelete = allKeys.filter(key => !key.match(keyRegex) && key !== RANDOM_MATCH_QUEUE_KEY);
+    const keysToDelete = allKeys.filter(key =>
+        !key.match(keyRegex) && key !== RANDOM_MATCH_QUEUE_KEY
+    );
 
     if (keysToDelete.length > 0) {
         await pubRedisClient.del(...keysToDelete);
     }
 }
 
-pubRedisClient.on('connect', () => {
+pubRedisClient.on('connect', async () => {
     if (!connected) {
         connected = true;
-        clear().then(() => {
-            console.log('Redis client connected')
-        })
+        await clear();
+        console.log('Redis client connected');
     }
 });
 

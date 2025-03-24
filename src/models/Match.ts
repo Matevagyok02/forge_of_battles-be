@@ -5,7 +5,8 @@ export enum MatchStage {
     pending = "pending",
     preparing = "preparing",
     started = "started",
-    finished = "finished"
+    finished = "finished",
+    abandoned = "abandoned"
 }
 
 @modelOptions({ schemaOptions: { timestamps: true } })
