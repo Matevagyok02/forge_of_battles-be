@@ -327,12 +327,13 @@ export class PlayerState {
                 this.canDeploy() &&
                 cost === 0
             ) {
+                await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.deploy, this._id);
+
                 if (!card.passiveAbility.requirements && this._battle) {
                     await this._battle.abilities.addAbility(this._id, card.passiveAbility);
                 }
 
                 card.addTempId();
-                await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.deploy, this._id);
                 this.deployedCards.set(forced && onPos ? onPos : Pos.defender, card);
                 this.onHand.splice(this.onHand.indexOf(card.id), 1);
                 return true;
