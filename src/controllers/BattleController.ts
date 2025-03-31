@@ -44,27 +44,27 @@ class BattleController {
 
     private setUpSocket(socket: Socket) {
         //basic events for starting the game
-        socket.on("ready", async (data: { deck: string }) => await this.setReadyState(data));
-        socket.on("disconnect", async () => await this.leaveMatchRoom());
+        socket.on("ready", this.setReadyState.bind(this));
+        socket.on("disconnect", this.leaveMatchRoom.bind(this));
 
         //basic game events
-        socket.on("start-turn", async () => await this.startTurn());
-        socket.on("end-turn", async () => await this.endTurn());
+        socket.on("start-turn", this.startTurn.bind(this));
+        socket.on("end-turn", this.endTurn.bind(this));
 
         //advanced game events
-        socket.on("draw", async () => await this.drawCards());
-        socket.on("redraw", async (data: { cardId: string }) => await this.redrawCards(data));
-        socket.on("advance", async () => await this.advanceCards());
-        socket.on("deploy", async (data: { cardId: string, sacrificeCards?: string[]}) => await this.deploy(data));
-        socket.on("storm", async (data: { posToAttack?: string, args?: RawRequirementArgs }) => await this.storm(data));
-        socket.on("use-action", async (data: { cardId: string, args?: RawRequirementArgs })=> this.useAction(data));
-        socket.on("use-passive", async (data: { pos: string, args?: RawRequirementArgs })=> this.usePassive(data));
-        socket.on("add-mana", async () => await this.addStormerToMana());
-        socket.on("move-to-front", async () => await this.moveToFrontLine());
-        socket.on("discard", async (data: { cardToDiscard: string[] | string }) => await this.discard(data));
+        socket.on("draw", this.drawCards.bind(this));
+        socket.on("redraw", this.redrawCards.bind(this));
+        socket.on("advance", this.advanceCards.bind(this));
+        socket.on("deploy", this.deploy.bind(this));
+        socket.on("storm", this.storm.bind(this));
+        socket.on("use-action", this.useAction.bind(this));
+        socket.on("use-passive", this.usePassive.bind(this));
+        socket.on("add-mana", this.addStormerToMana.bind(this));
+        socket.on("move-to-front", this.moveToFrontLine.bind(this));
+        socket.on("discard", this.discard.bind(this));
 
         //other events
-        socket.on("message", (data: { message: string, emitter: string }) => this.sendMessage(data));
+        socket.on("message", this.sendMessage.bind(this));
     }
 
     //basic game operations
@@ -163,7 +163,7 @@ class BattleController {
         const battle = await this.battleService.drawCards();
 
         if (battle) {
-            await this.emitToPlayers("turn-ended", { battle: battle });
+            await this.emitToPlayers("drawn", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
@@ -208,6 +208,24 @@ class BattleController {
         }
     }
 
+    private async sendMessage(data: { message: string, emitter: string }) {
+        await this.emitToOpponent("message", data);
+    }
+
+    //event emitting
+
+    private emitToSelf(ev: string, data: BattleData) {
+        this.nsp.to(this.userSocket).emit(ev, this.cleanBattleObj(data, this.opponentId));
+    }
+
+    private async emitToOpponent(ev: string, data: BattleData) {
+        const opponentSocketId = await pubRedisClient.hget(this.key, this.opponentId);
+
+        if (opponentSocketId) {
+            this.nsp.to(opponentSocketId).emit(ev, this.cleanBattleObj(data, this.userId));
+        }
+    }
+
     private async joinMatchRoom() {
         const room = await pubRedisClient.hgetall(this.key);
 
@@ -227,24 +245,7 @@ class BattleController {
         await pubRedisClient.hdel(this.key, this.userId);
         await pubRedisClient.del(this.userId);
         await this.emitToOpponent("opponent-left", { message: "Your opponent has left the game" });
-    }
-
-    private async sendMessage(data: { message: string, emitter: string }) {
-        await this.emitToOpponent("message", data);
-    }
-
-    //event emitting
-
-    private emitToSelf(ev: string, data: BattleData) {
-        this.nsp.to(this.userSocket).emit(ev, this.cleanBattleObj(data, this.opponentId));
-    }
-
-    private async emitToOpponent(ev: string, data: BattleData) {
-        const opponentSocketId = await pubRedisClient.hget(this.key, this.opponentId);
-
-        if (opponentSocketId) {
-            this.nsp.to(opponentSocketId).emit(ev, this.cleanBattleObj(data, this.userId));
-        }
+        this.nsp.sockets.get(this.userSocket)?.removeAllListeners();
     }
 
     private async emitToPlayers(ev: string, data: BattleData) {

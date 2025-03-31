@@ -280,6 +280,7 @@ export class MatchService {
                         &&
                         Date.now() - match.updatedAt.getTime() > inactivityTimeReq
                     ) || (
+                        match.getMatchStage() === MatchStage.abandoned ||
                         !await pubRedisClient.hget(key, match.getPlayer2Id())
                     )
                 )
