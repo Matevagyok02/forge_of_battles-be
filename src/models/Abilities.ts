@@ -83,7 +83,7 @@ export class Abilities {
 
         for (const a of eventDrivenAbilities) {
             const ability = a as EventDrivenAbility;
-            if (ability.event.includes(event) && ability.triggeredBy === triggeredBy) {
+            if (ability.event?.includes(event) && ability.triggeredBy === triggeredBy) {
                 await AbilityService.executeAbility(this.battle!, ability as InstantAbility);
             }
         }
@@ -135,14 +135,14 @@ export class Abilities {
 
         attributeModifiers.forEach(a => {
             const ability = a as AttributeModifierAbility;
-            if (ability.cardHolderId === deployerId && ability.targetPositions?.self.includes(Pos.defender)) {
+            if (ability.cardHolderId === deployerId && ability.targetPositions?.self?.includes(Pos.defender)) {
                 const card = this.battle!.player(deployerId)?.deployedCards.get(Pos.defender);
                 if (card) {
                     card.attack = card.attack + ability.attack;
                     card.defence = card.defence + ability.defence;
                 }
             }
-            if (ability.cardHolderId != deployerId && ability.targetPositions?.opponent.includes(Pos.defender)) {
+            if (ability.cardHolderId != deployerId && ability.targetPositions?.opponent?.includes(Pos.defender)) {
                 const card = this.battle!.player(deployerId)?.deployedCards.get(Pos.defender);
                 if (card) {
                     card.attack = card.attack + ability.attack;
