@@ -1,4 +1,4 @@
-import {Chat, ChatModel, ChatUser, Message} from "../models/Chat";
+import {ChatModel, ChatUser, Message} from "../models/Chat";
 import {UserService} from "./UserService";
 import {isUpdateSuccessful} from "../utils";
 
