@@ -152,7 +152,7 @@ export class MatchService {
             try {
                 const queue = await pubRedisClient.smembers(RANDOM_MATCH_QUEUE_KEY);
 
-                if (queue.length > 0) {
+                if (queue.length > 0 && queue[0] !== userId) {
                     const opponentId = queue[0];
                     await pubRedisClient.srem(RANDOM_MATCH_QUEUE_KEY, opponentId);
 

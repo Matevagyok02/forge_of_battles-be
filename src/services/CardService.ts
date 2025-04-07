@@ -55,9 +55,18 @@ export class CardService {
         }
     }
 
-    async getAllFromDeck(deck: Deck) {
+    async getCountByDeck(deck: Deck) {
         try {
             return await CardModel.find({ deck: deck }).select(['id', 'pieces']).lean().exec();
+        } catch (e: any) {
+            console.error(e);
+            return [];
+        }
+    }
+
+    async getByDeck(deck: string) {
+        try {
+            return await CardModel.find({ deck }).lean().exec();
         } catch (e: any) {
             console.error(e);
             return [];

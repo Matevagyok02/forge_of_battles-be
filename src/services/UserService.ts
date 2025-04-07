@@ -53,14 +53,31 @@ export class UserService {
         }
     }
 
-    async insertNewUser(userId: string, username: string, profilePicture?: string) {
+    async insertUser(userId: string, username: string, picture?: string) {
         try {
-            const newUser = new User(userId, username, profilePicture);
-            return !!await UserModel.create(newUser);
+            const newUser = new User(userId, username, picture);
+            const insert = await UserModel.create(newUser);
+            return !!insert;
         } catch (error: any) {
             if (error !instanceof DuplicateOptionsError)
                 console.error(error);
-            return false;
+            return null;
+        }
+    }
+
+    async getAllUsernames() {
+        try {
+            const users = await UserModel.find({}, "username").lean();
+            const usernames: string[] = [];
+
+            users.forEach((user: { username: string }) => {
+                usernames.push(user.username);
+            });
+
+            return usernames;
+        } catch (error: any) {
+            console.error(error);
+            return null;
         }
     }
 

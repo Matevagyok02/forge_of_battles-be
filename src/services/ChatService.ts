@@ -58,9 +58,9 @@ export class ChatService {
         }
     }
 
-    async getMessages(userId: string, fromId: string): Promise<Chat | null> {
+    async getMessages(userId: string, fromId: string): Promise<Message[]> {
         try {
-            return await ChatModel.findOneAndUpdate(
+            const chat = await ChatModel.findOneAndUpdate(
                 this.constructChatFilter(userId, fromId),
                 {
                     $set: {
@@ -71,16 +71,22 @@ export class ChatService {
                     arrayFilters: [{ 'user1.userId': userId }],
                     returnDocument: 'after'
                 }
-            ).lean();
+            ).lean().exec();
+
+            if (chat) {
+                return chat.messages;
+            } else {
+                return [];
+            }
         } catch (error: any) {
             console.error(error);
-            return null;
+            return [];
         }
     }
 
     async getUnseenMessages(userId: string) {
         try {
-            return await ChatModel.aggregate([
+            const unseenMessages = await ChatModel.aggregate([
                 {
                     $match: {
                         'users.userId': userId // Match documents with the specified userId
@@ -118,6 +124,12 @@ export class ChatService {
                     }
                 }
             ]).exec();
+
+            return unseenMessages.flat(1)
+                .map((message: any) => ({
+                    userId: message.otherUserId[0].userId,
+                    lastSeenAt: message.otherUserId[0].lastSeenAt,
+                }));
         } catch (e: any) {
             console.log(e);
             return null;

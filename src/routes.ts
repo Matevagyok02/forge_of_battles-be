@@ -35,8 +35,9 @@ const matchRouter = Router();
 const cardsRouter = Router();
 
 userRouter.get(``, userController.getUserAndFriends);
+userRouter.get(`/usernames`, userController.getAllUsernames);
 userRouter.get(`/find`, userController.getUserByUsernameOrUserId);
-userRouter.post(`/register`, userController.registerNewUser);
+userRouter.post(`/register`, userController.registerUser);
 userRouter.put(`/picture`, userController.changeUserPicture);
 
 friendRouter.get(`/online`, friendController.getOnlineFriends);
@@ -49,8 +50,7 @@ chatRouter.get(`/unseen`, chatController.getUnseenMessages);
 chatRouter.post(``, chatController.send);
 
 matchRouter.get(``, matchController.getByKey);
-matchRouter.get(`/active`, matchController.getActive);
-matchRouter.get(`/last-created`, matchController.getLastCreated);
+matchRouter.get(`/active`, matchController.getMatches);
 matchRouter.post(`/create`, matchController.create);
 matchRouter.put(`/join`, matchController.join);
 matchRouter.delete(`/decline`, matchController.decline);

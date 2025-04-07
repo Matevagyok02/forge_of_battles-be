@@ -90,38 +90,18 @@ export class MatchController {
         }
     }
 
-    getLastCreated = async (req: Request, res: Response)=> {
+    getMatches = async (req: Request, res: Response)=> {
         try {
             const userId = getUserId(req);
-            const match = await this.matchService.getLastCreatedMatch(userId as string);
+            const lastCreateMatch = await this.matchService.getLastCreatedMatch(userId);
+            const activeMatch = await this.matchService.getActiveMatchByUser(userId);
+            const inQueue = await this.matchService.isInQueue(userId);
 
-            if (match) {
-                match.battle.clearRefs();
-                res.status(200).json(match);
-            } else {
-                res.status(404).json({message: "No pending match was found"});
-            }
-        } catch (e: any) {
-            handleServerError(e, res);
-        }
-    }
-
-    getActive = async (req: Request, res: Response)=> {
-        try {
-            const userId = getUserId(req);
-            const match = await this.matchService.getActiveMatchByUser(userId as string);
-
-            if (match) {
-                match.battle.clearRefs();
-                res.status(200).json(match);
-            } else {
-                const inQueue = await this.matchService.isInQueue(userId);
-                if (inQueue) {
-                    res.status(200).json({message: "You are inside the random match queue"});
-                } else {
-                    res.status(404).json({message: "No active match was found"});
-                }
-            }
+            res.json({
+               created: lastCreateMatch,
+               active: activeMatch,
+               inQueue: inQueue,
+            });
         } catch (e: any) {
             handleServerError(e, res);
         }

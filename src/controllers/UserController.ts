@@ -70,7 +70,7 @@ export class UserController {
         }
     }
 
-    registerNewUser = async(req: Request, res: Response)=>
+    registerUser = async(req: Request, res: Response)=>
     {
         try {
             const userId = getUserId(req);
@@ -83,7 +83,7 @@ export class UserController {
                 const usernameTaken = await this.userService.usernameInUse(user.username)
 
                 if (!usernameTaken) {
-                    const userInsert = await this.userService.insertNewUser(userId, user.username, user.picture);
+                    const userInsert = await this.userService.insertUser(userId, user.username, user.picture);
                     if (userInsert) {
                         res.status(201).json({ message: "User successfully registered" });
                     } else {
@@ -95,6 +95,15 @@ export class UserController {
             } else {
                 res.status(400).json({ message: "'username' is missing from request body" });
             }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
+    getAllUsernames = async(req: Request, res: Response)=> {
+        try {
+            const usernames = await this.userService.getAllUsernames();
+            res.json(usernames);
         } catch (e: any) {
             handleServerError(e, res);
         }

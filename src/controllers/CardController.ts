@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {getUserId, handleServerError} from "../middleware";
 import {CardService} from "../services/CardService";
+import {Deck} from "../models/Card";
 
 export class CardController {
 
@@ -51,20 +52,19 @@ export class CardController {
 
     getByIds = async(req: Request, res: Response)=>  {
         try {
-            const cardsQueryString = req.query.cards as string;
-            const cardIds = cardsQueryString ? cardsQueryString.split(",") : [];
+            const cardsQueryString = req.query.cards;
+            const deckQueryString = req.query.deck;
 
-
-            if (Array.isArray(cardIds) && cardIds.length > 0) {
-                const cards = await this.cardService.getByIds(cardIds);
-
-                if (cards && cards.length > 0) {
-                    res.status(200).json(cards);
-                } else {
-                    res.status(404).json({ message: "Cards not found" });
-                }
+            if (deckQueryString && Object.keys(Deck).includes(deckQueryString as string)) {
+                const cards = await this.cardService.getByDeck(deckQueryString as string);
+                res.json(cards);
+            } else
+                if (cardsQueryString && Array.isArray((cardsQueryString as string).split(","))) {
+                    const cardIds = (cardsQueryString as string).split(",");
+                    const cards = await this.cardService.getByIds(cardIds);
+                    res.json(cards);
             } else {
-                res.status(400).json({ message: "Invalid card ids" });
+                res.status(400).json({ message: "Search params are missing or have been malformed" });
             }
         } catch (e: any) {
             handleServerError(e, res);
