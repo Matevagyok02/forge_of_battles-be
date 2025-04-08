@@ -18,19 +18,11 @@ export class FriendController {
             const userId = getUserId(req);
             const onlineFriends = await this.friendService.getOnlineFriends(userId);
 
-            if (onlineFriends && onlineFriends.length > 0) {
-
-                let notBusyFriends: string[] = [];
-                onlineFriends.forEach(friend => {
-                   if (!friend.busy) {
-                       notBusyFriends.push(friend.userId);
-                   }
-                });
-                await this.notificationService.notifyFriendsAtConnection(userId, notBusyFriends);
-                res.status(200).json({ onlineFriends: onlineFriends });
-            } else {
-                res.status(204).json({ message: "No online friends were found" });
-            }
+            await this.notificationService.notifyFriendsAtConnection(
+                userId,
+                onlineFriends.filter(f => !f.busy).map(f => f.userId)
+            );
+            res.status(200).json(onlineFriends);
         } catch (e: any) {
             handleServerError(e, res);
         }

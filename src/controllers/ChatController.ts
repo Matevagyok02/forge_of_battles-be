@@ -59,13 +59,8 @@ export class ChatController {
             const fromId = req.query.from;
 
             if (typeof fromId === "string") {
-                const chat = await this.chatService.getMessages(userId, fromId);
-
-                if (chat && chat.messages.length > 0) {
-                    res.json({ messages: chat.messages });
-                } else {
-                    res.status(204).json({ message: "No messages were sent to/sent by this user" });
-                }
+                const messages = await this.chatService.getMessages(userId, fromId);
+                res.json(messages);
             } else {
                 res.status(400).json({ message: "'from' parameter is missing" });
             }
@@ -79,10 +74,10 @@ export class ChatController {
             const userId = getUserId(req);
             const unseenMessages = await this.chatService.getUnseenMessages(userId);
 
-            if (unseenMessages && unseenMessages.length > 0)
+            if (unseenMessages)
                 res.status(200).json(unseenMessages);
             else
-                res.status(204).json({ message: "You do not have any unseen messages" });
+                res.status(404).json({ message: "No unseen messages were found" });
         } catch (e: any) {
             handleServerError(e, res);
         }

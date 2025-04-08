@@ -107,9 +107,9 @@ export class FriendService {
     }
 
     async getOnlineFriends(userId: string) {
-        try {
-            const activeFriends: { userId: string, busy: boolean }[] = [];
+        const onlineFriends: { userId: string, busy: boolean }[] = [];
 
+        try {
             const friendIdList = await UserModel.findOne({userId}, 'friends').lean();
             const friends = friendIdList?.friends;
 
@@ -118,15 +118,15 @@ export class FriendService {
                 friends?.forEach((friend: string, index: number) => {
                     if (activeValues[index] !== null) {
                         const busy = activeValues[index] === busyStatusIndicator;
-                        activeFriends.push({userId: friend, busy: busy});
+                        onlineFriends.push({userId: friend, busy: busy});
                     }
                 });
             }
 
-            return activeFriends;
+            return onlineFriends;
         } catch (error: any) {
             console.error(error);
-            return null;
+            return onlineFriends;
         }
     }
 

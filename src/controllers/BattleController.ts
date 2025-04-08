@@ -192,7 +192,7 @@ class BattleController {
     private async setReadyState(data: { deck: string }) {
         if ((<any>Object).values(Deck).includes(data.deck)) {
             const deck = data.deck as Deck;
-            const cards = await this.cardService.getAllFromDeck(deck);
+            const cards = await this.cardService.getCountByDeck(deck);
             const setPlayer = await this.battleService.setPlayer(deck, cards);
 
             if (setPlayer) {
