@@ -1,6 +1,6 @@
 import {Match, MatchModel, MatchStage, setRefs} from "../models/Match";
 import {Card, CardModel, Deck} from "../models/Card";
-import {CardWithPieces, Pos} from "../models/PlayerState";
+import {CardWithPieces, BattlefieldPos} from "../models/PlayerState";
 import {RequirementArgs} from "../models/Abilities";
 import {Battle} from "../models/Battle";
 import {pubRedisClient} from "../redis";
@@ -128,7 +128,7 @@ export class BattleService {
 
             if (match) {
                 const discard = await setRefs(match).battle.player(this.playerId)?.discard(
-                        Array.isArray(cardToDiscard) ? cardToDiscard : Pos[cardToDiscard as keyof typeof Pos]
+                        Array.isArray(cardToDiscard) ? cardToDiscard : BattlefieldPos[cardToDiscard as keyof typeof BattlefieldPos]
                     );
                 if (discard) {
                     await match.save();
@@ -152,8 +152,9 @@ export class BattleService {
                 if (player) {
                     let storm;
 
-                    const position = posToAttack ? Pos[posToAttack as keyof typeof Pos] : null;
-                    if (position && (position === Pos.frontLiner || position === Pos.vanguard)) {
+                    const position = posToAttack ? BattlefieldPos[posToAttack as keyof typeof BattlefieldPos] : null;
+
+                    if (position && (position === BattlefieldPos.frontLiner || position === BattlefieldPos.vanguard)) {
                         storm = await player.storm(args, position);
                     } else {
                         storm = await player.storm(args);
@@ -206,7 +207,7 @@ export class BattleService {
 
     usePassive = async (pos: string, args?: RawRequirementArgs) => {
         try {
-            const position: Pos| undefined = Pos[pos as keyof typeof Pos];
+            const position: BattlefieldPos| undefined = BattlefieldPos[pos as keyof typeof BattlefieldPos];
             const match = await MatchModel.findOne(this.filter).exec();
 
             if (match && position && this.isPlayerOnTurn(match)) {
@@ -246,21 +247,6 @@ export class BattleService {
             console.log(e);
         }
     }
-
-    // getBattle = async () => {
-    //     try {
-    //         const match = await MatchModel.findOne(this.filter).lean();
-    //
-    //         if (match && match.battle) {
-    //             return match.battle;
-    //         } else {
-    //             return null;
-    //         }
-    //     } catch (e: any) {
-    //         console.log(e);
-    //         return null;
-    //     }
-    // }
 
     drawCards = async (): Promise<Battle | undefined> => {
         try {
@@ -326,13 +312,13 @@ export class BattleService {
 
         try {
             if (rawArgs.cardToSacrifice) {
-                rawArgs.cardToSacrifice = Pos[rawArgs.cardToSacrifice as keyof typeof Pos];
+                rawArgs.cardToSacrifice = BattlefieldPos[rawArgs.cardToSacrifice as keyof typeof BattlefieldPos];
             }
 
             if (rawArgs.targetPositions?.self) {
-                let selfTargets: Pos[] = [];
+                let selfTargets: BattlefieldPos[] = [];
                 rawArgs.targetPositions.self.forEach(t => {
-                    const target: Pos = Pos[t as keyof typeof Pos];
+                    const target: BattlefieldPos = BattlefieldPos[t as keyof typeof BattlefieldPos];
                     if (target) {
                         selfTargets.push(target);
                     }
@@ -342,9 +328,9 @@ export class BattleService {
             }
 
             if (rawArgs.targetPositions?.opponent) {
-                let opponentTargets: Pos[] = [];
+                let opponentTargets: BattlefieldPos[] = [];
                 rawArgs.targetPositions.opponent.forEach(t => {
-                    const target: Pos = Pos[t as keyof typeof Pos];
+                    const target: BattlefieldPos = BattlefieldPos[t as keyof typeof BattlefieldPos];
                     if (target) {
                         opponentTargets.push(target);
                     }
@@ -367,36 +353,6 @@ export class BattleService {
     private isPlayerOnTurn(matchDocument: any) {
         const match = matchDocument as Match;
         return  match.battle.isTurnOfPlayer(this.playerId)
-    }
-
-    static getOpponentId = async (userId: string, key: string)=> {
-        try {
-            const filter = {
-                key: key,
-                $or: [
-                    { player1Id: userId },
-                    { player2Id: userId }
-                ]
-            };
-            let match = await MatchModel.findOne(filter, "player1Id player2Id").exec();
-
-            console.log(match?.key);
-
-            if (match) {
-                const player1Id = match.player1Id;
-                if (match.getPlayer2Id()) {
-                    const player2Id = match.getPlayer2Id();
-                    return player1Id !== userId ? player1Id : player2Id;
-                } else {
-                    return null;
-                }
-            }
-            else
-                return null;
-        } catch (e: any) {
-            console.log(e);
-            return null;
-        }
     }
 
     static getCardById = async (id: string): Promise<Card | null> => {
@@ -437,11 +393,11 @@ export class BattleService {
 }
 
 export interface RawRequirementArgs {
-    cardToSacrifice?: Pos | string;
+    cardToSacrifice?: BattlefieldPos | string;
     useAsMana?: string[];
     targetPositions?: {
-        self: Pos[] | string[],
-        opponent: Pos[] | string[]
+        self: BattlefieldPos[] | string[],
+        opponent: BattlefieldPos[] | string[]
     },
     targetCards?: string[];
     nestedArgs?: RawRequirementArgs | RequirementArgs;

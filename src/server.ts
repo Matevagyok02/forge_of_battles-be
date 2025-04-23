@@ -2,7 +2,6 @@ import express from "express";
 import http from "http";
 import cors from "cors";
 import router from "./routes";
-import { auth } from "express-oauth2-jwt-bearer";
 import {Server, Socket} from "socket.io";
 import {createAdapter} from "@socket.io/redis-adapter";
 import {pubRedisClient, subRedisClient} from "./redis";
@@ -15,12 +14,10 @@ import {RANDOM_MATCH_QUEUE_KEY} from "./services/MatchService";
 
 const port = 3000;
 const corsConfig = require("../cors-config.json");
-const authConfig = require("../auth-config.json");
 
 const app = express();
 app.use(express.json());
 app.use(cors(corsConfig));
-app.use(auth(authConfig));
 app.use("/", router);
 
 const server = http.createServer(app);

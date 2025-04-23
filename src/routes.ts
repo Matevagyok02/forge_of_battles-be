@@ -11,6 +11,7 @@ import {ChatService} from "./services/ChatService";
 import NotificationService from "./services/NotificationService";
 import {CardController} from "./controllers/CardController";
 import {CardService} from "./services/CardService";
+import {auth} from "express-oauth2-jwt-bearer";
 
 const router = Router();
 const userService = new UserService();
@@ -26,13 +27,10 @@ const matchController = new MatchController(matchService, userService, notificat
 const chatController = new ChatController(chatService, notificationService);
 const cardController = new CardController(cardService);
 
-router.use(checkUserId);
-
 const userRouter = Router();
 const friendRouter = Router();
 const chatRouter = Router();
 const matchRouter = Router();
-const cardsRouter = Router();
 
 userRouter.get(``, userController.getUserAndFriends);
 userRouter.get(`/usernames`, userController.getAllUsernames);
@@ -59,13 +57,14 @@ matchRouter.delete(`/leave`, matchController.leave);
 matchRouter.put(`/random`, matchController.joinRandom);
 matchRouter.delete(`/leave-random`, matchController.leaveRandom);
 
-cardsRouter.post(`/add`, cardController.add);
-cardsRouter.get(``, cardController.getByIds);
+const authConfig = require("../auth-config.json");
+const requiresAuth = auth(authConfig);
 
-router.use(`/user`, userRouter);
-router.use(`/friend`, friendRouter);
-router.use(`/chat`, chatRouter);
-router.use(`/match`, matchRouter);
-router.use(`/cards`, cardsRouter);
+router.use(`/user`, requiresAuth, checkUserId, userRouter);
+router.use(`/friend`, requiresAuth, checkUserId, friendRouter);
+router.use(`/chat`, requiresAuth, checkUserId, chatRouter);
+router.use(`/match`, requiresAuth, checkUserId, matchRouter);
+router.post(`cards/add`, requiresAuth, checkUserId, cardController.add);
+router.get(`/cards`, cardController.getByIds);
 
 export default router;

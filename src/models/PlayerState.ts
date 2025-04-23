@@ -4,7 +4,7 @@ import {shuffleArray} from "../utils";
 import {Battle} from "./Battle";
 import {Ability, AbilityUsageType, DiscardRequirement, RequirementArgs, TriggerEvent} from "./Abilities";
 
-export enum Pos {
+export enum BattlefieldPos {
     attacker = "attacker",
     supporter = "supporter",
     defender = "defender",
@@ -20,7 +20,7 @@ export enum TurnStages {
     DEPLOY_AND_USE_ACTIONS = 3
 }
 
-/** War Track positions:
+/** Battlefield positions:
  *      ---              ---          [p1-Stormer]
  *
  *  p2-Defender     p2-Front liner     p1-Attacker
@@ -58,7 +58,7 @@ export class PlayerState {
     readonly manaCards: string[];
 
     @prop({type: Card, _id: false })
-    readonly deployedCards: Map<Pos, Card>;
+    readonly deployedCards: Map<BattlefieldPos, Card>;
 
     @prop()
     private turnStartedAt?: number;
@@ -98,23 +98,23 @@ export class PlayerState {
 
     moveToFrontLine(card?: Card) {
         if (this.turnStage === TurnStages.ADVANCE_AND_STORM || !!card) {
-            const cardToMove = card ? card : this.deployedCards.get(Pos.stormer);
-            let targetPos: Pos.frontLiner | Pos.vanguard;
+            const cardToMove = card ? card : this.deployedCards.get(BattlefieldPos.stormer);
+            let targetPos: BattlefieldPos.frontLiner | BattlefieldPos.vanguard;
 
-            if (!this.deployedCards.has(Pos.frontLiner)) {
-                targetPos = Pos.frontLiner;
+            if (!this.deployedCards.has(BattlefieldPos.frontLiner)) {
+                targetPos = BattlefieldPos.frontLiner;
             } else if (
-                !this.deployedCards.has(Pos.vanguard) &&
-                !this._battle!.opponent(this._id)?.deployedCards.has(Pos.vanguard)
+                !this.deployedCards.has(BattlefieldPos.vanguard) &&
+                !this._battle!.opponent(this._id)?.deployedCards.has(BattlefieldPos.vanguard)
             ) {
-                targetPos = Pos.vanguard;
+                targetPos = BattlefieldPos.vanguard;
             } else {
                 return false;
             }
 
             if (cardToMove && targetPos) {
                 this.deployedCards.set(targetPos, cardToMove);
-                this.deployedCards.delete(Pos.stormer);
+                this.deployedCards.delete(BattlefieldPos.stormer);
                 if (!card) {
                     this.nextTurnStage();
                 }
@@ -124,9 +124,9 @@ export class PlayerState {
         return false;
     }
 
-    addToMana(position?: Pos, forced?: boolean) {
+    addToMana(position?: BattlefieldPos, forced?: boolean) {
         if (this.turnStage === TurnStages.ADVANCE_AND_STORM || forced) {
-            const pos = position ? position : Pos.stormer;
+            const pos = position ? position : BattlefieldPos.stormer;
             const card = this.deployedCards.get(pos);
 
             if (card) {
@@ -210,25 +210,25 @@ export class PlayerState {
 
     advanceCards() {
         if (this.turnStage === TurnStages.DRAW_AND_USE_PASSIVES) {
-            const attacker = this.deployedCards.get(Pos.attacker);
+            const attacker = this.deployedCards.get(BattlefieldPos.attacker);
             if (attacker) {
-                this.deployedCards.set(Pos.stormer, attacker);
-                this.deployedCards.delete(Pos.attacker);
+                this.deployedCards.set(BattlefieldPos.stormer, attacker);
+                this.deployedCards.delete(BattlefieldPos.attacker);
             }
 
-            const supporter = this.deployedCards.get(Pos.supporter);
+            const supporter = this.deployedCards.get(BattlefieldPos.supporter);
             if (supporter) {
-                this.deployedCards.set(Pos.attacker, supporter);
-                this.deployedCards.delete(Pos.supporter);
+                this.deployedCards.set(BattlefieldPos.attacker, supporter);
+                this.deployedCards.delete(BattlefieldPos.supporter);
             }
 
-            const defender = this.deployedCards.get(Pos.defender);
+            const defender = this.deployedCards.get(BattlefieldPos.defender);
             if (defender) {
-                this.deployedCards.set(Pos.supporter, defender);
-                this.deployedCards.delete(Pos.defender);
+                this.deployedCards.set(BattlefieldPos.supporter, defender);
+                this.deployedCards.delete(BattlefieldPos.defender);
             }
 
-            if (!this.deployedCards.has(Pos.stormer)) {
+            if (!this.deployedCards.has(BattlefieldPos.stormer)) {
                 this.turnStage = TurnStages.DEPLOY_AND_USE_ACTIONS;
             } else {
                 this.nextTurnStage();
@@ -240,10 +240,10 @@ export class PlayerState {
         }
     }
 
-    async storm(actionArgs?: RequirementArgs, posToAttack?: Pos.frontLiner | Pos.vanguard) {
-        if (this.deployedCards.has(Pos.stormer)) {
+    async storm(actionArgs?: RequirementArgs, posToAttack?: BattlefieldPos.frontLiner | BattlefieldPos.vanguard) {
+        if (this.deployedCards.has(BattlefieldPos.stormer)) {
             const opponent = this._battle!.opponent(this._id);
-            const attacker = this.deployedCards.get(Pos.stormer)
+            const attacker = this.deployedCards.get(BattlefieldPos.stormer)
 
             if (opponent && attacker) {
                 await this._battle!.abilities.applyEventDrivenAbilities(TriggerEvent.storm, this._id);
@@ -257,7 +257,7 @@ export class PlayerState {
                         }
                     }
                 } else {
-                    const defender = opponent.deployedCards.get(Pos.defender);
+                    const defender = opponent.deployedCards.get(BattlefieldPos.defender);
                     const damage = defender?.defence ?
                         attacker.attack - defender.defence : attacker.attack;
 
@@ -267,7 +267,7 @@ export class PlayerState {
                 if (attacker.actionAbility) {
                     await this._battle!.abilities.addAbility(this._id, attacker.actionAbility, actionArgs);
                 }
-                this.clearCard(Pos.stormer);
+                this.clearCard(BattlefieldPos.stormer);
 
                 if (this.turnStage === TurnStages.ADVANCE_AND_STORM) {
                     this.nextTurnStage();
@@ -301,7 +301,7 @@ export class PlayerState {
         }
     }
 
-    async usePassive(pos: Pos, args?: RequirementArgs) {
+    async usePassive(pos: BattlefieldPos, args?: RequirementArgs) {
         const card = this.deployedCards.get(pos);
 
         if (card) {
@@ -311,12 +311,10 @@ export class PlayerState {
         }
     }
 
-    async deploy(card: Card, useAsMana?: string[], forced?: boolean, onPos?: Pos) {
+    async deploy(card: Card, useAsMana?: string[], forced?: boolean, onPos?: BattlefieldPos) {
         if (this.turnStage === TurnStages.DEPLOY_AND_USE_ACTIONS || forced) {
             const index = this.onHand.indexOf(card.id);
             let cost = this._battle!.abilities.applyCostModifiers(this._id, card.cost, TriggerEvent.deploy);
-
-            this._battle!.abilities.applyAttributesOnDeployedCard(this._id);
 
             if ((cost > 0 && this.useMana(cost, useAsMana)) || forced) {
                 cost = 0;
@@ -334,7 +332,8 @@ export class PlayerState {
                 }
 
                 card.addTempId();
-                this.deployedCards.set(forced && onPos ? onPos : Pos.defender, card);
+                this.deployedCards.set(forced && onPos ? onPos : BattlefieldPos.defender, card);
+                this._battle!.abilities.applyAttributesOnDeployedCard(this._id);
                 this.onHand.splice(this.onHand.indexOf(card.id), 1);
                 return true;
             }
@@ -342,7 +341,7 @@ export class PlayerState {
         return false;
     }
 
-    discard(cardToDiscard: string[] | Pos) {
+    discard(cardToDiscard: string[] | BattlefieldPos) {
         const discardRequirement: DiscardRequirement = {
             player: this._id,
             amount: Array.isArray(cardToDiscard) ? cardToDiscard.length : 1,
@@ -381,7 +380,7 @@ export class PlayerState {
 
     //helper functions
 
-    async addToCasualties(pos: Pos) {
+    async addToCasualties(pos: BattlefieldPos) {
         const card = this.deployedCards.get(pos);
         if (!!card) {
             this.removeBasicAndEventDrivenAbilities(card.passiveAbility);
@@ -391,13 +390,13 @@ export class PlayerState {
         }
     }
 
-    clearCard(pos?: Pos) {
-        const position = pos ? pos : Pos.stormer;
+    clearCard(pos?: BattlefieldPos) {
+        const position = pos ? pos : BattlefieldPos.stormer;
         const card = this.deployedCards.get(position);
 
         if (card) {
-            this.removeBasicAndEventDrivenAbilities(card.passiveAbility);
             this.deployedCards.delete(position);
+            this.removeBasicAndEventDrivenAbilities(card.passiveAbility);
             this.casualties.push(card.id);
         }
     }
@@ -442,10 +441,10 @@ export class PlayerState {
     }
 
     canDeploy() {
-        return !this.deployedCards.has(Pos.defender);
+        return !this.deployedCards.has(BattlefieldPos.defender);
     }
 
-    sacrificeCard(pos: Pos) {
+    sacrificeCard(pos: BattlefieldPos) {
         const card = this.deployedCards.get(pos);
 
         if (card) {

@@ -1,6 +1,6 @@
 import {prop} from "@typegoose/typegoose";
 import {Deck} from "./Card";
-import {CardWithPieces, PlayerState, Pos} from "./PlayerState";
+import {CardWithPieces, PlayerState, BattlefieldPos} from "./PlayerState";
 import {Abilities, TriggerEvent} from "./Abilities";
 
 const placeholder = "card";
@@ -52,7 +52,7 @@ export class Battle {
                 if (currentTurnPlayer && nextTurnPlayer) {
                     this.turnOfPlayer = players[0];
                     nextTurnPlayer.resetBeforeTurn();
-                    currentTurnPlayer.deployedCards.delete(Pos.stormer);
+                    currentTurnPlayer.deployedCards.delete(BattlefieldPos.stormer);
 
                     if (currentTurnPlayer) {
                         currentTurnPlayer.endTurn();
@@ -84,14 +84,14 @@ export class Battle {
     }
 
     hasEnded(): boolean {
-        const hasPlayerLost = (player: PlayerState) => {
-            return player.bonusHealth.length + player.drawingDeck.length < 1 || !player.hasTimeLeft() ;
-        }
 
         const results: boolean[] = [];
 
         this.playerStates.forEach(player => {
-           results.push(hasPlayerLost(player));
+           results.push(
+               (player.bonusHealth.length + player.drawingDeck.length) < 1 ||
+               !player.hasTimeLeft()
+           );
         });
 
         return results.includes(true);
