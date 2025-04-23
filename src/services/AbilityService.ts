@@ -1,6 +1,6 @@
 import {Battle} from "../models/Battle";
 import {Ability, AbilityUsageType, InstantAbility} from "../models/Abilities";
-import {PlayerState, Pos} from "../models/PlayerState";
+import {PlayerState, BattlefieldPos} from "../models/PlayerState";
 import {BattleService} from "./BattleService";
 import {Card} from "../models/Card";
 
@@ -39,7 +39,7 @@ export class AbilityService {
     private static forceDiscardIfNoDefender = (battle: Battle, ability: InstantAbility) => {
         const opponent = battle.opponent(ability.cardHolderId!);
 
-        if (opponent && !opponent.deployedCards.has(Pos.defender)) {
+        if (opponent && !opponent.deployedCards.has(BattlefieldPos.defender)) {
             this.forceDiscard(battle, ability);
         }
     }
@@ -238,11 +238,11 @@ export class AbilityService {
     }
 
     private static setNewStormer = async (player: PlayerState, nextStormer: Card) => {
-        const currentStormer = player.deployedCards.get(Pos.stormer);
+        const currentStormer = player.deployedCards.get(BattlefieldPos.stormer);
 
         if (nextStormer && currentStormer) {
             player.clearCard();
-            player.deployedCards.set(Pos.stormer, nextStormer);
+            player.deployedCards.set(BattlefieldPos.stormer, nextStormer);
 
             if (
                 nextStormer.passiveAbility.usageType === AbilityUsageType.basic
@@ -257,7 +257,7 @@ export class AbilityService {
         const opponent = battle.opponent(ability.cardHolderId!);
 
         if (opponent) {
-            const defender = opponent.deployedCards.get(Pos.defender);
+            const defender = opponent.deployedCards.get(BattlefieldPos.defender);
             if (defender) {
                 opponent.receiveDamage(defender.defence);
             }
@@ -360,7 +360,7 @@ export class AbilityService {
         if (player) {
             const dep = player.deployedCards;
 
-            if (!dep.has(Pos.attacker) && !dep.has(Pos.supporter) && !dep.has(Pos.defender)) {
+            if (!dep.has(BattlefieldPos.attacker) && !dep.has(BattlefieldPos.supporter) && !dep.has(BattlefieldPos.defender)) {
                 AbilityService.dealDamage(battle, ability);
             }
         }
@@ -409,7 +409,7 @@ export class AbilityService {
     private static removeAllCardsAndAddThemToMana = (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
         const opponent = battle.opponent(ability.cardHolderId!);
-        const positions = [Pos.attacker, Pos.supporter, Pos.defender]; //TODO: add middle positions?
+        const positions = [BattlefieldPos.attacker, BattlefieldPos.supporter, BattlefieldPos.defender]; //TODO: add middle positions?
 
         if (player && opponent) {
             positions.forEach(pos => {
@@ -547,10 +547,10 @@ export class AbilityService {
                 player.casualties.splice(player.casualties.indexOf(ability.cardId), 1);
                 player.onHand.push(ability.cardId);
             }
-            else if (player.deployedCards.get(Pos.stormer)?.id === ability.cardId) {
-                const cardId = player.deployedCards.get(Pos.stormer)?.id;
+            else if (player.deployedCards.get(BattlefieldPos.stormer)?.id === ability.cardId) {
+                const cardId = player.deployedCards.get(BattlefieldPos.stormer)?.id;
                 if (cardId) {
-                    player.deployedCards.delete(Pos.stormer);
+                    player.deployedCards.delete(BattlefieldPos.stormer);
                     player.onHand.push(ability.cardId);
                 }
             }
@@ -593,7 +593,7 @@ export class AbilityService {
     private static dealDamageIf2CardsOnTrack = (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
         let cardsOnTrack = 0;
-        const positions = [Pos.attacker, Pos.supporter, Pos.defender];
+        const positions = [BattlefieldPos.attacker, BattlefieldPos.supporter, BattlefieldPos.defender];
 
         if (player) {
             positions.forEach(pos => {
@@ -658,7 +658,7 @@ export class AbilityService {
 
     private static dealLowestValueDamage = (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
-        const positions = [Pos.stormer, Pos.supporter, Pos.defender];
+        const positions = [BattlefieldPos.stormer, BattlefieldPos.supporter, BattlefieldPos.defender];
         let lowestValue = 0;
 
         if (player) {
@@ -676,7 +676,7 @@ export class AbilityService {
 
     private static dealHighestValueDamage = (battle: Battle, ability: InstantAbility) => {
         const player = battle.player(ability.cardHolderId!);
-        const positions = [Pos.stormer, Pos.supporter, Pos.defender];
+        const positions = [BattlefieldPos.stormer, BattlefieldPos.supporter, BattlefieldPos.defender];
         let highestValue = 0;
 
         if (player) {

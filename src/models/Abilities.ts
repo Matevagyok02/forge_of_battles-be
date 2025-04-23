@@ -1,6 +1,6 @@
 import {Battle} from "./Battle";
 import {modelOptions, prop, Severity} from "@typegoose/typegoose";
-import {Pos, TurnStages} from "./PlayerState";
+import {BattlefieldPos, TurnStages} from "./PlayerState";
 import {AbilityService} from "../services/AbilityService";
 
 @modelOptions({ options: { allowMixed: Severity.ALLOW } })
@@ -135,18 +135,17 @@ export class Abilities {
 
         attributeModifiers.forEach(a => {
             const ability = a as AttributeModifierAbility;
-            if (ability.cardHolderId === deployerId && ability.targetPositions?.self?.includes(Pos.defender)) {
-                const card = this.battle!.player(deployerId)?.deployedCards.get(Pos.defender);
+
+            if (ability.cardHolderId === deployerId && ability.targetPositions?.self?.includes(BattlefieldPos.defender)) {
+                const card = this.battle!.player(deployerId)?.deployedCards.get(BattlefieldPos.defender);
                 if (card) {
-                    card.attack = card.attack + ability.attack;
-                    card.defence = card.defence + ability.defence;
+                    card.modifyAttributes(ability);
                 }
             }
-            if (ability.cardHolderId != deployerId && ability.targetPositions?.opponent?.includes(Pos.defender)) {
-                const card = this.battle!.player(deployerId)?.deployedCards.get(Pos.defender);
+            if (ability.cardHolderId != deployerId && ability.targetPositions?.opponent?.includes(BattlefieldPos.defender)) {
+                const card = this.battle!.player(deployerId)?.deployedCards.get(BattlefieldPos.defender);
                 if (card) {
-                    card.attack = card.attack + ability.attack;
-                    card.defence = card.defence + ability.defence;
+                    card.modifyAttributes(ability);
                 }
             }
         });
@@ -197,7 +196,7 @@ export class Abilities {
 
             const checkSacrifice =
                 !sacrifice ||
-                (sacrifice && args?.cardToSacrifice && player.deployedCards.has(args?.cardToSacrifice as Pos));
+                (sacrifice && args?.cardToSacrifice && player.deployedCards.has(args?.cardToSacrifice as BattlefieldPos));
 
             const checkTargetPositions =
                 !targetPositions ||
@@ -210,7 +209,7 @@ export class Abilities {
             const checkEmptyDeployZone =
                 !requirements?.emptyDeployZone
                 || player.canDeploy()
-                || (sacrifice && args?.cardToSacrifice === Pos.defender);
+                || (sacrifice && args?.cardToSacrifice === BattlefieldPos.defender);
 
             const checkNestedArgs =
                 !requirements?.nestedArgs
@@ -261,8 +260,8 @@ export class Abilities {
 
     private validateTarget(
         cardHolderId: string,
-        targetReq: { self: Pos[], opponent: Pos[], allowCrossTarget: boolean, targetAmount: number },
-        targetArg?: { self: Pos[], opponent: Pos[] }
+        targetReq: { self: BattlefieldPos[], opponent: BattlefieldPos[], allowCrossTarget: boolean, targetAmount: number },
+        targetArg?: { self: BattlefieldPos[], opponent: BattlefieldPos[] }
     ): boolean {
         if (targetArg) {
             let validTarget;
@@ -359,22 +358,21 @@ export class Abilities {
             if (ability.targetPositions?.self && ability.targetPositions?.self.length > 0) {
                 const player = this.battle!.player(ability.cardHolderId);
 
-                ability.targetPositions?.self.forEach(target => {
+                ability.targetPositions.self.forEach(target => {
                     const card = player?.deployedCards.get(target);
                     if (card) {
-                        card.attack = card.attack + ability.attack;
-                        card.defence = card.defence + ability.defence;
+                        card.modifyAttributes(ability);
                     }
                 });
             }
+
             if (ability.targetPositions?.opponent && ability.targetPositions?.opponent.length > 0) {
                 const opponent = this.battle!.opponent(ability.cardHolderId);
 
-                ability.targetPositions?.self.forEach(target => {
+                ability.targetPositions.opponent.forEach(target => {
                     const card = opponent?.deployedCards.get(target);
                     if (card) {
-                        card.attack = card.attack + ability.attack;
-                        card.defence = card.defence + ability.defence;
+                        card.modifyAttributes(ability);
                     }
                 });
             }
@@ -409,21 +407,21 @@ export class Abilities {
     }
 }
 
-const getNextPos = (pos: Pos): Pos | undefined => {
+const getNextPos = (pos: BattlefieldPos): BattlefieldPos | undefined => {
     switch (pos) {
-        case Pos.defender: return Pos.supporter;
-        case Pos.supporter: return Pos.attacker;
-        case Pos.attacker: return Pos.stormer;
+        case BattlefieldPos.defender: return BattlefieldPos.supporter;
+        case BattlefieldPos.supporter: return BattlefieldPos.attacker;
+        case BattlefieldPos.attacker: return BattlefieldPos.stormer;
         default: return undefined;
     }
 }
 
 export interface RequirementArgs {
-    cardToSacrifice?: Pos;
+    cardToSacrifice?: BattlefieldPos;
     useAsMana?: string[];
     targetPositions?: {
-        self: Pos[],
-        opponent: Pos[]
+        self: BattlefieldPos[],
+        opponent: BattlefieldPos[]
     },
     targetCards?: string[];
     nestedArgs?: RequirementArgs;
@@ -435,8 +433,8 @@ export interface AbilityRequirements {
     emptyDeployZone?: boolean;
     nestedArgs?: boolean;
     selectablePositions?: {
-        self: Pos[],
-        opponent: Pos[],
+        self: BattlefieldPos[],
+        opponent: BattlefieldPos[],
         allowCrossTarget: boolean,
         targetAmount: number
     };
@@ -454,8 +452,8 @@ export interface IAbility {
     //value of these is assigned by the player
     cardHolderId?: string;
     targetPositions?: {
-        self: Pos[],
-        opponent: Pos[]
+        self: BattlefieldPos[],
+        opponent: BattlefieldPos[]
     },
     targetCards?: string[];
     nestedArgs?: RequirementArgs;

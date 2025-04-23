@@ -1,5 +1,5 @@
 import {getModelForClass, modelOptions, prop, Severity} from "@typegoose/typegoose";
-import {Ability} from "./Abilities";
+import {Ability, AttributeModifierAbility} from "./Abilities";
 import {generateKey} from "../utils";
 
 @modelOptions({ options: { allowMixed: Severity.ALLOW } })
@@ -37,6 +37,11 @@ export class Card {
 
     addTempId() {
         this.tempId = generateKey();
+    }
+
+    modifyAttributes(ability: AttributeModifierAbility) {
+        this.attack = Math.max(this.attack + ability.attack, 0);
+        this.defence = Math.max(this.defence + ability.defence, 0);
     }
 }
 

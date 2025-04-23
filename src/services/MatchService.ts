@@ -190,7 +190,7 @@ export class MatchService {
 
     async isInQueue(userId: string) {
         try {
-            return await pubRedisClient.sismember(RANDOM_MATCH_QUEUE_KEY, userId);
+            return !!await pubRedisClient.sismember(RANDOM_MATCH_QUEUE_KEY, userId);
         } catch (e: any) {
             console.log(e);
             return false;
