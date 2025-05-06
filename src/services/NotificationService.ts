@@ -4,49 +4,49 @@ import {User} from "../models/User";
 
 class NotificationService {
 
-    private getSocketIfAvailable = async (userId: string): Promise<string | null> => {
+    private getSocketId = async (userId: string): Promise<string | null> => {
         const socketId = await pubRedisClient.get(userId);
         const isAvailable = typeof socketId === "string" && socketId !== busyStatusIndicator;
         return isAvailable ? socketId : null;
     }
 
     sendFriendRequest = async (receiverId: string, sender: object) => {
-        const socket = await this.getSocketIfAvailable(receiverId);
+        const socket = await this.getSocketId(receiverId);
         if (socket) {
             io.to(socket).emit("friend-request", sender);
         }
     }
 
     acceptedFriendRequest = async (receiverId: string, acceptor: any) => {
-        const socket = await this.getSocketIfAvailable(receiverId);
+        const socket = await this.getSocketId(receiverId);
         if (socket) {
             io.to(socket).emit("friend-request-accepted", acceptor);
         }
     }
 
     declinedFriendRequest = async (receiverId: string, decliner: any) => {
-        const socket = await this.getSocketIfAvailable(receiverId);
+        const socket = await this.getSocketId(receiverId);
         if (socket) {
             io.to(socket).emit("friend-request-declined", decliner);
         }
     }
 
     sendMatchInvite = async (receiverId: string, match: any) => {
-        const socket = await this.getSocketIfAvailable(receiverId);
+        const socket = await this.getSocketId(receiverId);
         if (socket) {
             io.to(socket).emit("match-invite", match);
         }
     }
 
     acceptedMatchInvite = async (receiverId: string, key: string) => {
-        const socket = await this.getSocketIfAvailable(receiverId);
+        const socket = await this.getSocketId(receiverId);
         if (socket) {
             io.to(socket).emit("match-invite-accepted", key);
         }
     }
 
     declinedMatchInvite = async (receiverId: string, decliner: User) => {
-        const socket = await this.getSocketIfAvailable(receiverId);
+        const socket = await this.getSocketId(receiverId);
         if (socket) {
             io.to(socket).emit("match-invite-declined", decliner);
         }

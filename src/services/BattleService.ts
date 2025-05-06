@@ -81,7 +81,7 @@ export class BattleService {
                 const player = setRefs(match).battle.player(this.playerId);
 
                 if (player) {
-                    const addToMana = player.addToMana();
+                    const addToMana = await player.addToMana();
 
                     if (addToMana) {
                         await match.save();
@@ -155,9 +155,9 @@ export class BattleService {
                     const position = posToAttack ? BattlefieldPos[posToAttack as keyof typeof BattlefieldPos] : null;
 
                     if (position && (position === BattlefieldPos.frontLiner || position === BattlefieldPos.vanguard)) {
-                        storm = await player.storm(args, position);
+                        storm = await player.attack(args, position);
                     } else {
-                        storm = await player.storm(args);
+                        storm = await player.attack(args);
                     }
 
                     if (storm) {

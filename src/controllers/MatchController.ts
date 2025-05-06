@@ -66,7 +66,7 @@ export class MatchController {
         }
     }
 
-    abandon = async(req: Request, res: Response)=> {
+    abandon = async(req: Request, res: Response) => {
         try {
             const userId = getUserId(req);
             const key = req.query.key;
@@ -82,6 +82,21 @@ export class MatchController {
                 } else {
                     res.status(204).json({ message: "The match does not exists or has already been deleted" });
                 }
+            } else {
+                res.status(400).json({ message: "'key' param is missing" });
+            }
+        } catch (e: any) {
+            handleServerError(e, res);
+        }
+    }
+
+    isAbandoned = async(req: Request, res: Response) => {
+        try {
+            const key = req.query.key;
+
+            if (typeof key === "string") {
+                const isAbandoned = await this.matchService.isAbandoned(key);
+                res.status(200).json({ isAbandoned });
             } else {
                 res.status(400).json({ message: "'key' param is missing" });
             }
@@ -228,20 +243,6 @@ export class MatchController {
             handleServerError(e, res);
         }
     }
-
-    // private async setPenalty(userId: string) {
-    //     try {
-    //         const update = await UserModel.updateOne(
-    //             {userId},
-    //             {penaltyCreatedAt: new Date()}
-    //         ).lean();
-    //
-    //         return isUpdateSuccessful(update);
-    //     } catch (error: any) {
-    //         console.error(error);
-    //         return false;
-    //     }
-    // }
 
     private async hasPenalty(userId: string) {
         try {

@@ -56,6 +56,7 @@ matchRouter.delete(`/abandon`, matchController.abandon);
 matchRouter.delete(`/leave`, matchController.leave);
 matchRouter.put(`/random`, matchController.joinRandom);
 matchRouter.delete(`/leave-random`, matchController.leaveRandom);
+matchRouter.get(`/is-abandoned`, matchController.isAbandoned);
 
 const authConfig = require("../auth-config.json");
 const requiresAuth = auth(authConfig);
