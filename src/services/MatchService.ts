@@ -285,14 +285,24 @@ export class MatchService {
                     )
                 )
             ) {
-                const deleteMatch = await MatchModel.deleteOne(filter).lean();
-                return deleteMatch.deletedCount > 0 ? 0 : 2;
+                await this.delete(key);
+                return 0;
             } else {
                 return 1;
             }
         } catch (e: any) {
             console.log(e);
             return 2;
+        }
+    }
+
+    async isAbandoned(key: string) {
+        try {
+            const match = await MatchModel.findOne({key}).exec();
+            return match?.getMatchStage() === MatchStage.abandoned;
+        } catch (e: any) {
+            console.log(e);
+            return false;
         }
     }
 

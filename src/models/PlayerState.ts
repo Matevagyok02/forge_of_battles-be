@@ -124,16 +124,17 @@ export class PlayerState {
         return false;
     }
 
-    addToMana(position?: BattlefieldPos, forced?: boolean) {
+    async addToMana(position?: BattlefieldPos, forced?: boolean) {
         if (this.turnStage === TurnStages.ADVANCE_AND_STORM || forced) {
             const pos = position ? position : BattlefieldPos.stormer;
             const card = this.deployedCards.get(pos);
 
             if (card) {
-                this.removeBasicAndEventDrivenAbilities(card.passiveAbility);
+                this.deployedCards.delete(pos);
+                await this.removeBasicAndEventDrivenAbilities(card.passiveAbility);
                 this.manaCards.push(card.id);
                 this.mana = this.mana + 1;
-                this.deployedCards.delete(pos);
+
                 if (!forced) {
                     this.nextTurnStage();
                 }
@@ -240,7 +241,7 @@ export class PlayerState {
         }
     }
 
-    async storm(actionArgs?: RequirementArgs, posToAttack?: BattlefieldPos.frontLiner | BattlefieldPos.vanguard) {
+    async attack(actionArgs?: RequirementArgs, posToAttack?: BattlefieldPos.frontLiner | BattlefieldPos.vanguard) {
         if (this.deployedCards.has(BattlefieldPos.stormer)) {
             const opponent = this._battle!.opponent(this._id);
             const attacker = this.deployedCards.get(BattlefieldPos.stormer)
