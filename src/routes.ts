@@ -12,6 +12,7 @@ import NotificationService from "./services/NotificationService";
 import {CardController} from "./controllers/CardController";
 import {CardService} from "./services/CardService";
 import {auth} from "express-oauth2-jwt-bearer";
+import {ServerAvailabilityTestController} from "./controllers/ServerAvailabilityTestController";
 
 const router = Router();
 const userService = new UserService();
@@ -67,5 +68,6 @@ router.use(`/chat`, requiresAuth, checkUserId, chatRouter);
 router.use(`/match`, requiresAuth, checkUserId, matchRouter);
 router.post(`cards/add`, requiresAuth, checkUserId, cardController.add);
 router.get(`/cards`, cardController.getByIds);
+router.get(`/test`, ServerAvailabilityTestController.test);
 
 export default router;
