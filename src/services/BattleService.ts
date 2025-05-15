@@ -142,7 +142,7 @@ export class BattleService {
         }
     }
 
-    storm = async (posToAttack?: string, rawArgs?: RawRequirementArgs) => {
+    attack = async (posToAttack?: string, rawArgs?: RawRequirementArgs) => {
         try {
             const match = await MatchModel.findOne(this.filter).exec();
             const args = this.formatRequirementArgs(rawArgs);

@@ -56,7 +56,7 @@ class BattleController {
         socket.on("redraw", this.redrawCards.bind(this));
         socket.on("advance", this.advanceCards.bind(this));
         socket.on("deploy", this.deploy.bind(this));
-        socket.on("storm", this.storm.bind(this));
+        socket.on("attack", this.attack.bind(this));
         socket.on("use-action", this.useAction.bind(this));
         socket.on("use-passive", this.usePassive.bind(this));
         socket.on("add-mana", this.addStormerToMana.bind(this));
@@ -102,10 +102,10 @@ class BattleController {
         }
     }
 
-    private async storm(data: { posToAttack?: string, args?: RawRequirementArgs }) {
-        const battle = await this.battleService.storm(data?.posToAttack, data?.args);
+    private async attack(data: { posToAttack?: string, args?: RawRequirementArgs }) {
+        const battle = await this.battleService.attack(data?.posToAttack, data?.args);
         if (battle) {
-            await this.emitToPlayers("stormed", { battle: battle });
+            await this.emitToPlayers("attacked", { battle: battle });
         } else {
             this.emitErrorMessage();
         }
